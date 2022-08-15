@@ -29,7 +29,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		return response, err
 	}
 
-	response.Body = fmt.Sprintf(`{"message":"Hello %s %s"}`, reqBody.Name, reqBody.LastName)
+	response.Body = fmt.Sprintf(`{"message":"Hola %s %s"}`, reqBody.Name, reqBody.LastName)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

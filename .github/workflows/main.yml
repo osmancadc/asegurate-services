@@ -9,16 +9,22 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps: 
-      - uses: dorny/paths-filter@v2.2.1
-        id: filter
-        with:
-          filters: .github/workflows/filters.yml
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
           stable: 'false'
           go-version: '1.18.1'
+      - uses: dorny/paths-filter@v2.2.1
+        id: filter
+        with:
+          filters: |
+            UploadScore:
+              - 'UploadScore/**/*'
+            GetScores:
+              - 'GetScores/**/*'
       - name: lint
+        with:
+          files: ${{ steps.filter.outputs.changed_files }}
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.26.0
 

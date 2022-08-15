@@ -24,10 +24,6 @@ jobs:
       - uses: blombard/lambda-monorepo@master
         with:
           lambda-functions: '${{ toJson(steps.filter.outputs) }}'
-          run: |
-            go mod init main
-            go mod tidy
-            go build main
           zip-params: 'main'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3

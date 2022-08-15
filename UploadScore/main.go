@@ -9,6 +9,9 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
+/*
+* Little change to check the linter functionality
+ */
 func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 

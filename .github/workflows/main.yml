@@ -16,11 +16,7 @@ jobs:
       - uses: dorny/paths-filter@v2.2.1
         id: filter
         with:
-          filters: |
-            UploadScore:
-              - 'UploadScore/**'
-            GetScores:
-              - 'GetScores/**'
+          filters: .github/filters.yml
       - uses: blombard/lambda-monorepo@master
         with:
           lambda-functions: '${{ toJson(steps.filter.outputs) }}'

@@ -12,7 +12,7 @@ jobs:
       - uses: dorny/paths-filter@v2.2.1
         id: filter
         with:
-          filters: .github/filters.yml
+          filters: .github/workflows/filters.yml
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:

@@ -1,0 +1,4 @@
+UploadScore:
+  - 'UploadScore/**/*'
+GetScores:
+  - 'GetScores/**/*'

@@ -9,8 +9,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps: 
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           stable: 'false'
           go-version: '1.18.1'
@@ -22,12 +22,8 @@ jobs:
               - 'UploadScore/**/*'
             GetScores:
               - 'GetScores/**/*'
-      - name: lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
         with:
-          files: ${{ steps.filter.outputs.changed_files }}
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.26.0
-
-          golangci-lint run 
-      
-
+          version: latest
+          working-directory: ${{ steps.filter.outputs.changed_files }}

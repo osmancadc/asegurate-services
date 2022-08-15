@@ -19,9 +19,9 @@ jobs:
         with:
           filters: |
             UploadScore:
-              - 'UploadScore/**/*'
+              - 'UploadScore/**'
             GetScores:
-              - 'GetScores/**/*'
+              - 'GetScores/**'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:

@@ -10,7 +10,7 @@ import (
 )
 
 /*
-* Little change to check the linter functionality v2
+* Little change to check the linter functionality V3
  */
 func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody

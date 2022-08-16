@@ -5,15 +5,14 @@ on:
     branches:
       - master
 jobs:
-  # JOB to run change detection
   changes:
     name: Files Verification
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.filter.outputs.changes }}
     steps:
-    - uses: dorny/paths-filter@v2
-      id: filter
+    - uses: dorny/paths-filter@v2.2.1
+      id: filter_1
       with:
         filters: |
           UploadScore: UploadScore

@@ -11,6 +11,8 @@ jobs:
     outputs:
       packages: ${{ steps.filter.outputs.locales }}
     steps:
+      - name: Debug action
+        uses: hmarr/debug-action@v2.0.1 
       - uses: actions/checkout@v3
       - uses: dorny/paths-filter@v2.2.1
         id: filter

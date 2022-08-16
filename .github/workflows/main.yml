@@ -11,14 +11,15 @@ jobs:
     outputs:
       packages: ${{ steps.filter.outputs.changes }}
     steps:
-    - uses: dorny/paths-filter@v2.2.1
-      id: filter_1
-      with:
-        filters: |
-          UploadScore:
-            - 'UploadScore/**'
-          GetScores:
-            - 'GetScores/**'
+      - uses: actions/checkout@v3
+      - uses: dorny/paths-filter@v2.2.1
+        id: filter_1
+        with:
+          filters: |
+            UploadScore:
+              - 'UploadScore/**'
+            GetScores:
+              - 'GetScores/**'
   fuzz-test:
       needs: changes
       name: Fuzz test

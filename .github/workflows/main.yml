@@ -39,6 +39,7 @@ jobs:
           version: latest
           working-directory: ${{ matrix.package }}
   deploy-serverless:
+    needs: lint-verirication
     runs-on: ubuntu-latest
     steps: 
       - uses: actions/checkout@v3

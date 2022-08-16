@@ -1,3 +1,10 @@
+name: Lint Verification
+
+on:
+  push:
+    banches:
+      -master
+      
 jobs:
   # JOB to run change detection
   changes:

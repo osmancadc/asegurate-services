@@ -19,7 +19,7 @@ jobs:
             GetScores:
               - 'GetScores/**'
   lint-verirication:
-    needs: verification
+    needs: check-files
     strategy:
       matrix:
         package: ${{ fromJSON(needs.changes.outputs.packages) }}

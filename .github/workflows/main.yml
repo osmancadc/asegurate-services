@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dorny/paths-filter@v2.2.1
-        id: filter_1
+        id: filter
         with:
           filters: |
             UploadScore:

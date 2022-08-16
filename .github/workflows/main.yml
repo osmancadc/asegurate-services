@@ -9,7 +9,7 @@ jobs:
     name: Files Verification
     runs-on: ubuntu-latest
     outputs:
-      packages: ${{ steps.filter.outputs }}
+      packages: ${{ steps.filter.outputs.locales }}
     steps:
       - uses: actions/checkout@v3
       - uses: dorny/paths-filter@v2.2.1

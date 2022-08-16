@@ -5,15 +5,33 @@ on:
     branches:
       - master
 jobs:
+  # JOB to run change detection
+  changes:
+    name: Files Verification
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.filter.outputs.changes }}
+    steps:
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          UploadScore: UploadScore
+          GetScores: GetScores
   fuzz-test:
+      needs: changes
       name: Fuzz test
       runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          package: ${{ fromJSON(needs.changes.outputs.packages) }}
       steps:
         - uses: jidicula/go-fuzz-action@v1.1.0
           with:
-            packages: './...'
+            packages: './${{ matrix.package }}'
             fuzz-time: 30s
   deploy-serverless:
+    name: Deploy lambda function(s)
     runs-on: ubuntu-latest
     steps: 
       - uses: actions/checkout@v3

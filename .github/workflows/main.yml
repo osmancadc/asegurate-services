@@ -5,6 +5,35 @@ on:
     banches:
       -master
 jobs:
+# JOB to run change detection
+  verification:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.filter.outputs.changes }}
+    steps:
+    - uses: dorny/paths-filter@v2.2.1
+      id: filter
+      with:
+          filters: .github/filters.yml
+  lint:
+    needs: verification
+    strategy:
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
+    runs-on: ubuntu-latest
+    defaults:
+       run:
+         working-directory: src/${{ matrix.package }} 
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.1'
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          working-directory: src/${{ matrix.package }}
   deploy:
     runs-on: ubuntu-latest
     steps: 

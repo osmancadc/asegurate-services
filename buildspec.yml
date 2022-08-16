@@ -4,21 +4,14 @@ phases:
 
   install: 
     commands:
-      - go get -u github.com/golang/lint/golint
+      - echo Installing dependencies...
 
   pre_build: 
     commands:
-
-      # Ensure code passes all lint tests
-      - golint -set_exit_status
-
-      # Run all tests included with our application
       - go test
 
   build:
     commands:
-
-      # Build our application
       - go build -o app
 
 artifacts:

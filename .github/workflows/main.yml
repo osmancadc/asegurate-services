@@ -8,8 +8,6 @@ jobs:
   changes:
     name: Files Verification
     runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.filter.outputs.changes }}
     steps:
       - uses: actions/checkout@v3
       - uses: dorny/paths-filter@v2.2.1
@@ -20,9 +18,11 @@ jobs:
               - 'UploadScore/**'
             GetScores:
               - 'GetScores/**'
+    outputs:
+      packages: ${{ steps.filter.outputs.changes }}
   fuzz-test:
       needs: changes
-      name: Fuzz test
+      name: Unit testing
       runs-on: ubuntu-latest
       strategy:
         matrix:

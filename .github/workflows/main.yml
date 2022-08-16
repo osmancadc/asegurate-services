@@ -16,9 +16,9 @@ jobs:
         with:
             filters: |
               UploadScore:
-                - 'UploadScore/**'
+                - './UploadScore'
               GetScores:
-                - 'GetScores/**'
+                - './GetScores'
   lint-verirication:
     needs: check-files
     strategy:

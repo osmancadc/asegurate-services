@@ -5,30 +5,12 @@ on:
     branches:
       - master
 jobs:
-  changes:
-    name: Files Verification
-    runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.filter.outputs.locales }}
-    steps:
-      - name: Debug action
-        uses: hmarr/debug-action@v2.0.1 
-      - uses: actions/checkout@v3
-      - uses: dorny/paths-filter@v2.2.1
-        id: filter
-        with:
-          filters: |
-            UploadScore:
-              - 'UploadScore/**'
-            GetScores:
-              - 'GetScores/**'
   fuzz-test:
-      needs: changes
       name: Unit testing
       runs-on: ubuntu-latest
       strategy:
         matrix:
-          package: ${{ fromJSON(needs.changes.outputs.packages) }}
+          package: [UploadScore]
       steps:
         - uses: jidicula/go-fuzz-action@v1.1.0
           with:

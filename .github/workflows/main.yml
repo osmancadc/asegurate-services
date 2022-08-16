@@ -6,7 +6,6 @@ on:
       - master
 jobs:
   deploy-serverless:
-    needs: lint-verirication
     runs-on: ubuntu-latest
     steps: 
       - uses: ScaCap/code-coverage-assistant@v1

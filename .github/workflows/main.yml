@@ -1,52 +1,18 @@
-name: Deployment
+name: Deploy to production environment
 
 on:
   push:
     banches:
       -master
 jobs:
-# JOB to run change detection
-  verification:
-    runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.filter.outputs.changes }}
-    steps:
-    - uses: dorny/paths-filter@v2.2.1
-      id: filter
-      with:
-          filters: .github/filters.yml
   lint:
-    needs: verification
-    strategy:
-      matrix:
-        package: ${{ fromJSON(needs.changes.outputs.packages) }}
-    runs-on: ubuntu-latest
-    defaults:
-       run:
-         working-directory: src/${{ matrix.package }} 
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '1.18.1'
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-          working-directory: src/${{ matrix.package }}
-  deploy:
     runs-on: ubuntu-latest
     steps: 
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
+          stable: 'false'
           go-version: '1.18.1'
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
       - uses: dorny/paths-filter@v2.2.1
         id: filter
         with:
@@ -55,4 +21,9 @@ jobs:
         with:
           lambda-functions: '${{ toJson(steps.filter.outputs) }}'
           zip-params: 'main'
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          working-directory: ${{ steps.filter.outputs.changes }}
       

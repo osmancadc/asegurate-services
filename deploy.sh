@@ -6,7 +6,6 @@ if [ -n "$PATH_NAME" ]; then cd $PATH_NAME; fi
 
 go mod init main
 go mod tidy
-go test -v *.go
 go build main
 
 zip lambda.zip -r $ZIP_PARAMS

@@ -1,4 +1,4 @@
-package main
+package UploadScore
 
 func add(n, m int) int {
 	return n + m

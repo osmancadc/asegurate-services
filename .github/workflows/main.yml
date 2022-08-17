@@ -13,32 +13,30 @@ jobs:
         package: [UploadScore,GetScore]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: Initialize Go Environment
+        uses: actions/setup-go@v3
         with:
           go-version: '1.18.1'
-      - name: Initialize go module
+      - name: Running unit tests
         working-directory: ${{strategy.matrix.package}}
         run: |
           go mod init testing_module
           go mod tidy
           go test ./... -coverprofile coverage.out -covermode count
           go tool cover -func coverage.out
-        # run: |
-        #   go mod init testing_module
-        #   go mod tidy
-        #   go test -v -cover ./...
-      - name: Quality Gate - Test coverage shall be above threshold
+      - name: Quality Check
         env:
-            TESTCOVERAGE_THRESHOLD: 20
+            MINIMUM_COVERAGE: 20
         run: |
-            echo "Quality Gate: checking test coverage is above threshold ..."
-            echo "Threshold             : $TESTCOVERAGE_THRESHOLD %"
+            echo "Quality Check: checking test coverage is above minimum ..."
+            echo "Threshold             : $MINIMUM_COVERAGE %"
             totalCoverage=`go tool cover -func=coverage.out | grep total | grep -Eo '[0-9]+\.[0-9]+'`
             echo "Current test coverage : $totalCoverage %"
-            if (( $(echo "$totalCoverage $TESTCOVERAGE_THRESHOLD" | awk '{print ($1 > $2)}') )); then
+            if (( $(echo "$totalCoverage $MINIMUM_COVERAGE" | awk '{print ($1 > $2)}') )); then
+                echo "All checks passed"
                 echo "OK"
             else
-                echo "Current test coverage is below threshold. Please add more unit tests or adjust threshold to a lower value."
+                echo "Current test coverage is below the minimum. Please add more unit tests or extend the scenarios."
                 echo "Failed"
                 exit 1
             fi  
@@ -50,12 +48,12 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: '1.18.1'
-      # - name: Configure AWS Credentials
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
       - uses: dorny/paths-filter@v2.2.1
         id: filter
         with:

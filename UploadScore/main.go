@@ -9,9 +9,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-/*
-* Little change to check ,the linter and deploy functionality V24
- */
 func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
@@ -29,7 +26,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		return response, err
 	}
 
-	response.Body = fmt.Sprintf(`{"message":"Mucho gusto %s %s"}`, reqBody.Name, reqBody.LastName)
+	response.Body = fmt.Sprintf(`{"message":"What is up %s %s"}`, reqBody.Name, reqBody.LastName)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

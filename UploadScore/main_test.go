@@ -1,4 +1,4 @@
-package UploadScore
+package main
 
 import (
 	"reflect"

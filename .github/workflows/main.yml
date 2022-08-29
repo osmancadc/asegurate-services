@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [UploadScore,GetScore]
+        package: [UploadScore,GetScore,CreateUser,BetaRegistration]
     steps:
       - uses: actions/checkout@v3
       - name: Initialize Go Environment

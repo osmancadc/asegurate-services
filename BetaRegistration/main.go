@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -26,7 +27,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		return response, err
 	}
 
-	response.Body = reqBody
+	response.Body = fmt.Sprintf(`{"message":"Whats up %v"}`, reqBody)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

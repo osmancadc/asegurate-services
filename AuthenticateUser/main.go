@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HanderAuthenticateUser(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
@@ -21,10 +21,10 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 
 	fmt.Println("======================================")
-	fmt.Printf("%v", req)
+	fmt.Printf("%v", request)
 	fmt.Println("======================================")
 
-	err := json.Unmarshal([]byte(req.Body), &reqBody)
+	err := json.Unmarshal([]byte(request.Body), &reqBody)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		return response, err
@@ -36,5 +36,5 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 }
 
 func main() {
-	lambda.Start(HanderUploadScore)
+	lambda.Start(HanderAuthenticateUser)
 }

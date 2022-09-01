@@ -20,17 +20,13 @@ func HanderAuthenticateUser(request events.APIGatewayProxyRequest) (events.APIGa
 		},
 	}
 
-	fmt.Println("======================================")
-	fmt.Printf("%v", request)
-	fmt.Println("======================================")
-
 	err := json.Unmarshal([]byte(request.Body), &reqBody)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		return response, err
 	}
 
-	response.Body = fmt.Sprintf(`{"message":"Whats up %s %s"}`, reqBody.Name, reqBody.LastName)
+	response.Body = fmt.Sprintf(`{ "message": "user created successfully"}`)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

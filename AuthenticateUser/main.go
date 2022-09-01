@@ -26,7 +26,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	// 	return response, err
 	// }
 
-	response.Body = fmt.Sprintf(`{"message":"Osman modified this Endpoint (1)"}`)
+	response.Body = fmt.Sprintf(`{"message":"Osman modified this Endpoint (2)"}`)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

@@ -6,3 +6,5 @@ BetaRegistration:
   - 'BetaRegistration/**'
 CreateUser:
   - 'CreateUser/**'
+AuthenticateUser:
+  - 'AuthenticateUser/**'

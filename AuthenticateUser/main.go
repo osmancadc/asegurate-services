@@ -1,15 +1,16 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-//1
 func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	// var reqBody RequestBody
+	var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -19,13 +20,13 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		},
 	}
 
-	// err := json.Unmarshal([]byte(req.Body), &reqBody)
-	// if err != nil {
-	// 	response.StatusCode = http.StatusBadRequest
-	// 	return response, err
-	// }
+	err := json.Unmarshal([]byte(req.Body), &reqBody)
+	if err != nil {
+		response.StatusCode = http.StatusBadRequest
+		return response, err
+	}
 
-	response.Body = `{"message":"Osman modified this Endpoint (2)"}`
+	response.Body = fmt.Sprintf(`{"message":"Whats up %s %s"}`, reqBody.Name, reqBody.LastName)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

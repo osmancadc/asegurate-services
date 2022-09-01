@@ -26,7 +26,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		return response, err
 	}
 
-	response.Body = fmt.Sprintf(`{ "message": "user created successfully"}`)
+	response.Body = fmt.Sprintf(`{ "message": "user created successfully (AWS)"}`)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

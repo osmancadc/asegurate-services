@@ -26,7 +26,8 @@ func HanderAuthenticateUser(request events.APIGatewayProxyRequest) (events.APIGa
 		return response, err
 	}
 
-	response.Body = fmt.Sprintf(`{ "message": "user created successfully"}`)
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiT3NtYW4gQmVsdHJhbiBNdXJjaWEiLCJpZCI6MSwicm9sZSI6InNlbGxlciJ9.O9AFf50ynYzBGifCxAPsVHJ-Wo-oOfedz7zqeHXlDMs"
+	response.Body = fmt.Sprintf(`{ "message": "User authenticated", "token":"%s"}`, token)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

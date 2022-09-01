@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -10,7 +9,7 @@ import (
 
 //1
 func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var reqBody RequestBody
+	// var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -26,7 +25,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	// 	return response, err
 	// }
 
-	response.Body = fmt.Sprintf(`{"message":"Osman modified this Endpoint (1)"}`)
+	response.Body = `{"message":"Osman modified this Endpoint (1)"}`
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

@@ -21,7 +21,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 
 	fmt.Println("======================================")
-	fmt.Printf("%v", req.Body)
+	fmt.Printf("%v", req)
 	fmt.Println("======================================")
 
 	err := json.Unmarshal([]byte(req.Body), &reqBody)

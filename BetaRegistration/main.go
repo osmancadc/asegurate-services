@@ -28,6 +28,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 
 	conn := ConnectDatabase()
+	defer conn.Close()
 
 	query, err := conn.Prepare(fmt.Sprintf(`INSERT INTO dev_asegurate.beta_user 
 											(name, age, cellphone, email, smartphone, operative_system, commentary, associate)

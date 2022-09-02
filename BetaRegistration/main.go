@@ -11,7 +11,7 @@ import (
 
 //2
 func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var reqBody RequestBody
+	var data RequestBody
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -21,16 +21,27 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		},
 	}
 
-	err := json.Unmarshal([]byte(req.Body), &reqBody)
+	err := json.Unmarshal([]byte(req.Body), &data)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		return response, err
 	}
 
-	fmt.Println(reqBody.Name)
-	fmt.Printf(`{"message":"User %s registered"}`, reqBody.Name)
+	conn := ConnectDatabase()
 
-	response.Body = fmt.Sprintf(`{"message":"User %s registered"}`, reqBody.Name)
+	query, err := conn.Prepare(fmt.Sprintf(`INSERT INTO dev_asegurate.beta_user 
+											(name, age, cellphone, email, smartphone, operative_system, commentary, associate)
+											VALUES('%s', %d, '%s', '%s', %t, '%s', '%s', '%s')`,
+		data.Name, data.Age, data.Cellphone, data.Email, data.Smartphone, data.OperativeSystem, data.Commentary, data.Associate))
+	if err != nil {
+		response.Body = fmt.Sprintf(`{"error_code":"DB01","message":"%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	query.Exec()
+
+	response.Body = fmt.Sprintf(`{"message":"Beta user %s registered"}`, data.Name)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

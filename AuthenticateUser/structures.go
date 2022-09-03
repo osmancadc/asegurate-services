@@ -1,6 +1,12 @@
 package main
 
 type RequestBody struct {
-	Name     string `json:"name"`
-	LastName string `json:"lastname"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type User struct {
+	UserId int
+	Name   string
+	Role   string
 }

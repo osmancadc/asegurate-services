@@ -2,116 +2,59 @@ package main
 
 import (
 	"testing"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
-func Test_sub(t *testing.T) {
+func TestGenerateJWT(t *testing.T) {
 	type args struct {
-		n int
-		m int
+		user User
 	}
 	tests := []struct {
-		name string
-		args args
-		want int
+		name    string
+		args    args
+		want    string
+		wantErr bool
 	}{
 		{
-			name: "test sub",
+			name: "success test",
 			args: args{
-				n: 1,
-				m: 1,
+				user: User{
+					Name:   "testing",
+					UserId: 0,
+					Role:   "test_role",
+				},
 			},
-			want: 0,
+			want:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJpZCI6MCwibmFtZSI6InRlc3RpbmciLCJyb2xlIjoidGVzdF9yb2xlIn0.SzyvalR5J2O13hSYmp9hGDSorL3DVO_4alUENApxX5M",
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := sub(tt.args.n, tt.args.m); got != tt.want {
-				t.Errorf("sub() = %v, want %v", got, tt.want)
+			got, err := GenerateJWT(tt.args.user)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GenerateJWT() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("GenerateJWT() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_add(t *testing.T) {
-	type args struct {
-		n int
-		m int
-	}
+func TestConnectDatabase(t *testing.T) {
 	tests := []struct {
 		name string
-		args args
-		want int
 	}{
 		{
-			name: "test add",
-			args: args{
-				n: 1,
-				m: 1,
-			},
-			want: 2,
+			name: "DB test",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := add(tt.args.n, tt.args.m); got != tt.want {
-				t.Errorf("add() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_mult(t *testing.T) {
-	type args struct {
-		n int
-		m int
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "test mul",
-			args: args{
-				n: 1,
-				m: 1,
-			},
-			want: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := mult(tt.args.n, tt.args.m); got != tt.want {
-				t.Errorf("mult() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_div(t *testing.T) {
-	type args struct {
-		n int
-		m int
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "test div",
-			args: args{
-				n: 1,
-				m: 1,
-			},
-			want: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := div(tt.args.n, tt.args.m); got != tt.want {
-				t.Errorf("div() = %v, want %v", got, tt.want)
-			}
+			gotConnection := ConnectDatabase()
+			gotConnection.Close()
 		})
 	}
 }

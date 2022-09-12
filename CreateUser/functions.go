@@ -1,17 +1,70 @@
 package main
 
-func add(n, m int) int {
-	return n + m
+import (
+	"database/sql"
+	"fmt"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+func ConnectDatabase() (connection *sql.DB) {
+	// user := os.Getenv("DB_USER")
+	// password := os.Getenv("DB_PASSWORD")
+	// host := os.Getenv("DB_HOST")
+	// database := os.Getenv("DB_NAME")
+
+	user := "administrator"
+	password := "35Yw!8uO5v5g"
+	host := "dev-asegurate.cluster-cnaioe8hvyno.us-east-1.rds.amazonaws.com"
+	database := "dev_asegurate"
+
+	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+	if err != nil {
+		fmt.Printf("Error conectando DB %v", err)
+		panic(err.Error())
+	}
+
+	return
 }
 
-func sub(n, m int) int {
-	return n - m
+func InsertPerson(conn *sql.DB, document, name, lastname string) error {
+	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname) VALUES(?, ?, ?)`)
+	if err != nil {
+		fmt.Println("ERROR 1.1")
+		return err
+	}
+
+	query.Exec(document, name, lastname)
+
+	return nil
 }
 
-func mult(n, m int) int {
-	return n * m
+func InsertUser(conn *sql.DB, username, email, phone, password, document, role string) (int64, error) {
+
+	query, err := conn.Prepare(`INSERT INTO user (username, email, phone, password, document, role) VALUES (?, ?, ?, ?, ?,?)`)
+	if err != nil {
+		fmt.Println("ERROR 2.1")
+		return -1, err
+	}
+
+	data, err := query.Exec(username, email, phone, password, document, role)
+	if err != nil {
+		fmt.Println("ERROR 2.2")
+		fmt.Println(err.Error())
+		return -1, err
+	}
+
+	id, _ := data.LastInsertId()
+	return id, nil
 }
 
-func div(n, m int) int {
-	return n / m
+func InsertSeller(conn *sql.DB, id int64) error {
+	query, err := conn.Prepare(`INSERT INTO seller (score, reputation, stars, meli_id, user_id) VALUES(50, 50, 0, '', ?)`)
+	if err != nil {
+		fmt.Println("ERROR 4")
+		return err
+	}
+
+	query.Exec(id)
+	return nil
 }

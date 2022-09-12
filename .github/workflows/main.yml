@@ -26,7 +26,7 @@ jobs:
           go tool cover -func coverage.out
       - name: Quality Check
         env:
-            MINIMUM_COVERAGE: 20
+            MINIMUM_COVERAGE: 5
         run: |
             echo "Quality Check: checking test coverage is above minimum ..."
             echo "Threshold             : $MINIMUM_COVERAGE %"

@@ -1,6 +1,6 @@
 UploadScore:
   - 'UploadScore/**'
-GetScores:
+GetScore:
   - 'GetScore/**'
 BetaRegistration:
   - 'BetaRegistration/**'

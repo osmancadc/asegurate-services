@@ -29,9 +29,7 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 	conn := ConnectDatabase()
 	defer conn.Close()
 
-	fmt.Printf(`SELECT u.user_id id, CONCAT(p.name," ",p.lastname) name,u.role FROM user u
-	INNER JOIN person p on u.document = p.document
-	WHERE u.username = '%s' and u.password = '%s'`, data.Username, data.Password)
+	//TODO Format Query to use the "?" nomeclature
 
 	results, err := conn.Query(fmt.Sprintf(`SELECT u.user_id id, CONCAT(p.name," ",p.lastname) name,u.role FROM user u
 												INNER JOIN person p on u.document = p.document

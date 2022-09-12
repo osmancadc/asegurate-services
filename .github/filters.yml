@@ -1,7 +1,7 @@
 UploadScore:
   - 'UploadScore/**'
 GetScores:
-  - 'GetScores/**'
+  - 'GetScore/**'
 BetaRegistration:
   - 'BetaRegistration/**'
 CreateUser:

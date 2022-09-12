@@ -1,7 +1,5 @@
 package main
 
-package main
-
 import (
 	"encoding/json"
 	"fmt"
@@ -11,7 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
@@ -31,8 +29,6 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	conn := ConnectDatabase()
 	defer conn.Close()
 
-
-
 	response.Body = fmt.Sprintf(`{
 		"name": "Osman Beltran Murcia",
 		"document": "1018500888",
@@ -47,6 +43,5 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 }
 
 func main() {
-	lambda.Start(HanderUploadScore)
+	lambda.Start(HanderGetScore)
 }
-

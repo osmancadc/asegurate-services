@@ -3,20 +3,16 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func ConnectDatabase() (connection *sql.DB) {
-	// user := os.Getenv("DB_USER")
-	// password := os.Getenv("DB_PASSWORD")
-	// host := os.Getenv("DB_HOST")
-	// database := os.Getenv("DB_NAME")
-
-	user := "administrator"
-	password := "35Yw!8uO5v5g"
-	host := "dev-asegurate.cluster-cnaioe8hvyno.us-east-1.rds.amazonaws.com"
-	database := "dev_asegurate"
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	host := os.Getenv("DB_HOST")
+	database := os.Getenv("DB_NAME")
 
 	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
 	if err != nil {

@@ -37,7 +37,7 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 		"reputation": 87,
 		"score": 75,
 		"certified": true,
-		"photo": "https://ibb.co/hMN4g5Q"
+		"photo": "https://i.ibb.co/CtyYwdC/149011790-2798860903763021-7437472807811785585-n.jpg"
 	}`)
 	response.StatusCode = http.StatusOK
 	return response, nil

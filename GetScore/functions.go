@@ -61,7 +61,14 @@ func DaysSinceLastUpdate(lastUpdate string) (int, error) {
 
 func GetAssociatedName(document, documentType string) (string, string, error) {
 
-	result, err := http.Get(fmt.Sprintf(`%s/cedula?documentType=%s&documentNumber=%s`, os.Getenv("DATA_URL"), document, documentType))
+	url := fmt.Sprintf(`%s/cedula?documentType=%s&documentNumber=%s`, os.Getenv("DATA_URL"), documentType, document)
+	bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
+
+	request, err := http.NewRequest("GET", url, nil)
+	request.Header.Add(`Authorization`, bearer)
+
+	client := &http.Client{}
+	result, err := client.Do(request)
 	if err != nil {
 		fmt.Println("ERROR 1")
 		return "", "", err
@@ -108,6 +115,6 @@ func GetResponseBody(score Score, document string) string {
 		"reputation": %d,
 		"score": %d,
 		"certified": %t,
-		"photo": %s
+		"photo": "%s"
 	}`, fullname, document, score.Stars, score.Reputation, score.Score, certified, profile_picture)
 }

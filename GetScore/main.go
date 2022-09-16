@@ -9,9 +9,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-// Some change
 func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var reqBody RequestBody
+	var req RequestBody
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -21,7 +20,7 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 		},
 	}
 
-	err := json.Unmarshal([]byte(req.Body), &reqBody)
+	err := json.Unmarshal([]byte(req.Body), &req)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		return response, err
@@ -30,15 +29,43 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 	conn := ConnectDatabase()
 	defer conn.Close()
 
-	response.Body = fmt.Sprintf(`{
-		"name": "Osman Beltran Murcia",
-		"document": "1018500888",
-		"stars": 4,
-		"reputation": 87,
-		"score": 75,
-		"certified": true,
-		"photo": "https://i.ibb.co/CtyYwdC/149011790-2798860903763021-7437472807811785585-n.jpg"
-	}`)
+	score, isStored, err := GetStoredScore(conn, req.Document)
+
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	if !isStored {
+		fmt.Println("No se encontraron datos")
+
+		score, _ := CalculateScore(req.Document, req.Type)
+
+		response.Body = GetResponseBody(score, req.Document)
+		response.StatusCode = http.StatusOK
+		return response, nil
+	}
+
+	fmt.Println("Se encontraron datos internos")
+
+	elapsed, err := DaysSinceLastUpdate(score.Updated)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	if elapsed > 7 {
+		fmt.Println("Updated a week ago")
+		score, _ := CalculateScore(req.Document, req.Type)
+
+		response.Body = GetResponseBody(score, req.Document)
+		response.StatusCode = http.StatusOK
+		return response, nil
+	}
+
+	response.Body = GetResponseBody(score, req.Document)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

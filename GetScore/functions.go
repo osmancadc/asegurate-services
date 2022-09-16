@@ -32,7 +32,7 @@ func GetStoredScore(conn *sql.DB, document string) (Score, bool, error) {
 
 	results, err := conn.Query(`select name, lastname, score, reputation, stars, last_update  from person p  where p.document = ?`, document)
 	if err != nil {
-		fmt.Println("ERROR 1")
+		fmt.Println("ERROR 1 DATABASE")
 		return score, false, err
 	}
 
@@ -70,7 +70,7 @@ func GetAssociatedName(document, documentType string) (string, string, error) {
 	client := &http.Client{}
 	result, err := client.Do(request)
 	if err != nil {
-		fmt.Println("ERROR 1")
+		fmt.Println("ERROR 1 GETNAME")
 		return "", "", err
 	}
 	defer result.Body.Close()
@@ -106,7 +106,7 @@ func CalculateScore(document, documentType string) (Score, error) {
 func GetResponseBody(score Score, document string) string {
 	certified := (rand.Intn(1) == 1)
 	fullname := fmt.Sprintf(`%s %s`, score.Name, score.Lastname)
-	profile_picture := "https://testiing.free.beeceptor.com"
+	profile_picture := "https://i.postimg.cc/yxNwV2Cm/user-01.png"
 
 	return fmt.Sprintf(`{
 		"name": "%s",

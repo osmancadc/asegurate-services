@@ -83,7 +83,7 @@ func CalculateScore(document, documentType string) (Score, error) {
 
 	score := Score{}
 
-	name, lastname, _ := GetAssociatedName(req.Document, req.Type)
+	name, lastname, _ := GetAssociatedName(document, documentType)
 
 	min := 50
 	max := 100

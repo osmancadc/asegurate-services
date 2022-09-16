@@ -10,7 +10,7 @@ import (
 )
 
 func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var req RequestBody
+	var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -20,7 +20,7 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 		},
 	}
 
-	err := json.Unmarshal([]byte(req.Body), &req)
+	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
 		return response, err
@@ -29,7 +29,7 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 	conn := ConnectDatabase()
 	defer conn.Close()
 
-	score, isStored, err := GetStoredScore(conn, req.Document)
+	score, isStored, err := GetStoredScore(conn, reqBody.Document)
 
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
@@ -40,9 +40,9 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 	if !isStored {
 		fmt.Println("No se encontraron datos")
 
-		score, _ := CalculateScore(req.Document, req.Type)
+		score, _ := CalculateScore(reqBody.Document, reqBody.Type)
 
-		response.Body = GetResponseBody(score, req.Document)
+		response.Body = GetResponseBody(score, reqBody.Document)
 		response.StatusCode = http.StatusOK
 		return response, nil
 	}
@@ -58,14 +58,14 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 
 	if elapsed > 7 {
 		fmt.Println("Updated a week ago")
-		score, _ := CalculateScore(req.Document, req.Type)
+		score, _ := CalculateScore(reqBody.Document, reqBody.Type)
 
-		response.Body = GetResponseBody(score, req.Document)
+		response.Body = GetResponseBody(score, reqBody.Document)
 		response.StatusCode = http.StatusOK
 		return response, nil
 	}
 
-	response.Body = GetResponseBody(score, req.Document)
+	response.Body = GetResponseBody(score, reqBody.Document)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

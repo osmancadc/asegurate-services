@@ -102,8 +102,8 @@ func GetResponseBody(score Score, document string) string {
 	profile_picture := "https://i.ibb.co/CtyYwdC/149011790-2798860903763021-7437472807811785585-n.jpg"
 
 	return fmt.Sprintf(`{
-		"name": %s,
-		"document": %s,
+		"name": "%s",
+		"document": "%s",
 		"stars": %d,
 		"reputation": %d,
 		"score": %d,

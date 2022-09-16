@@ -32,14 +32,14 @@ func GetStoredScore(conn *sql.DB, document string) (Score, bool, error) {
 
 	results, err := conn.Query(`select name, lastname, score, reputation, stars, last_update  from person p  where p.document = ?`, document)
 	if err != nil {
-		fmt.Println("ERROR 1 DATABASE")
+		fmt.Printf("GetStoredScore(1): %s", err.Error())
 		return score, false, err
 	}
 
 	if results.Next() {
 		err = results.Scan(&score.Name, &score.Lastname, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
 		if err != nil {
-			fmt.Println("error 2")
+			fmt.Printf("GetStoredScore(2): %s", err.Error())
 			return score, false, err
 		}
 

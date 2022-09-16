@@ -106,7 +106,7 @@ func CalculateScore(document, documentType string) (Score, error) {
 func GetResponseBody(score Score, document string) string {
 	certified := (rand.Intn(1) == 1)
 	fullname := fmt.Sprintf(`%s %s`, score.Name, score.Lastname)
-	profile_picture := "https://i.ibb.co/CtyYwdC/149011790-2798860903763021-7437472807811785585-n.jpg"
+	profile_picture := "https://testiing.free.beeceptor.com"
 
 	return fmt.Sprintf(`{
 		"name": "%s",

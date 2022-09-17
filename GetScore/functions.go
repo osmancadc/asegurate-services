@@ -125,7 +125,7 @@ func GetResponseBody(score Score, document string) string {
 
 func SaveNewPerson(conn *sql.DB, score Score, document string) error {
 
-	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);`)
+	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		fmt.Printf(`SaveNewPerson(1) %s`, err.Error())
 		return err

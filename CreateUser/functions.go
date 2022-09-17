@@ -16,7 +16,7 @@ func ConnectDatabase() (connection *sql.DB) {
 
 	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
 	if err != nil {
-		fmt.Printf("Error conectando DB %v", err)
+		fmt.Printf("ConnectDatabase(1) %s", err.Error())
 		panic(err.Error())
 	}
 
@@ -24,9 +24,9 @@ func ConnectDatabase() (connection *sql.DB) {
 }
 
 func InsertPerson(conn *sql.DB, document, name, lastname string) error {
-	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname) VALUES(?, ?, ?)`)
+	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, 50, 0, 50, CURRENT_TIMESTAMP)`)
 	if err != nil {
-		fmt.Println("ERROR 1.1")
+		fmt.Printf("InsertPerson(1) %s", err.Error())
 		return err
 	}
 
@@ -39,14 +39,13 @@ func InsertUser(conn *sql.DB, username, email, phone, password, document, role s
 
 	query, err := conn.Prepare(`INSERT INTO user (username, email, phone, password, document, role) VALUES (?, ?, ?, ?, ?,?)`)
 	if err != nil {
-		fmt.Println("ERROR 2.1")
+		fmt.Printf("InsertUser(1) %s", err.Error())
 		return -1, err
 	}
 
 	data, err := query.Exec(username, email, phone, password, document, role)
 	if err != nil {
-		fmt.Println("ERROR 2.2")
-		fmt.Println(err.Error())
+		fmt.Printf("InsertUser(2) %s", err.Error())
 		return -1, err
 	}
 
@@ -55,9 +54,9 @@ func InsertUser(conn *sql.DB, username, email, phone, password, document, role s
 }
 
 func InsertSeller(conn *sql.DB, id int64) error {
-	query, err := conn.Prepare(`INSERT INTO seller (score, reputation, stars, meli_id, user_id) VALUES(50, 50, 0, '', ?)`)
+	query, err := conn.Prepare(`INSERT INTO seller (meli_id, user_id) VALUES('', ?)`)
 	if err != nil {
-		fmt.Println("ERROR 4")
+		fmt.Printf("InsertSeller(1) %s", err.Error())
 		return err
 	}
 

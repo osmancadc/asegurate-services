@@ -38,16 +38,28 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 	}
 
 	if !isStored {
-		fmt.Println("No se encontraron datos")
+		fmt.Println("No internal data was found")
 
-		score, _ := CalculateScore(reqBody.Document, reqBody.Type)
+		score, err := CalculateScore(reqBody.Document, reqBody.Type)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, nil
+		}
+
+		err = SaveNewPerson(conn, score, reqBody.Document)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, nil
+		}
 
 		response.Body = GetResponseBody(score, reqBody.Document)
 		response.StatusCode = http.StatusOK
 		return response, nil
 	}
 
-	fmt.Println("Se encontraron datos internos")
+	fmt.Println("Internal data found")
 
 	elapsed, err := DaysSinceLastUpdate(score.Updated)
 	if err != nil {
@@ -57,7 +69,7 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 	}
 
 	if elapsed > 7 {
-		fmt.Println("Updated a week ago")
+		fmt.Println("Updated over a week ago")
 		score, _ := CalculateScore(reqBody.Document, reqBody.Type)
 
 		response.Body = GetResponseBody(score, reqBody.Document)

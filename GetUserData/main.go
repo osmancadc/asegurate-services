@@ -19,9 +19,9 @@ func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 
 	fmt.Println("====================================")
-	fmt.Println(req.QueryStringParameters["user_id"])
+	fmt.Println(req.PathParameters["user_id"])
 	fmt.Println("====================================")
-	fmt.Printf("-> %v", req.QueryStringParameters)
+	fmt.Printf("-> %v", req.PathParameters)
 	fmt.Println("====================================")
 
 	response.Body = req.QueryStringParameters["user_id"]

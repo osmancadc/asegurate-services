@@ -6,7 +6,7 @@ type RequestBody struct {
 }
 
 type User struct {
-	UserId int
+	UserId string
 	Name   string
 	Role   string
 }

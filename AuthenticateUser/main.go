@@ -31,7 +31,7 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 
 	//TODO Format Query to use the "?" nomeclature
 
-	results, err := conn.Query(fmt.Sprintf(`SELECT u.user_id id, CONCAT(p.name," ",p.lastname) name,u.role FROM user u
+	results, err := conn.Query(fmt.Sprintf(`SELECT u.document id, CONCAT(p.name," ",p.lastname) name,u.role FROM user u
 												INNER JOIN person p on u.document = p.document
 												WHERE u.username = '%s' and u.password = '%s'`, data.Username, data.Password))
 	if err != nil {
@@ -41,10 +41,9 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 	}
 
 	for results.Next() {
-		var id int
-		var name, role string
+		var document, name, role string
 
-		err = results.Scan(&id, &name, &role)
+		err = results.Scan(&document, &name, &role)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{"error_code":"DB02","message":"%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
@@ -52,7 +51,7 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 		}
 
 		token, err := GenerateJWT(User{
-			UserId: id,
+			UserId: document,
 			Name:   name,
 			Role:   role,
 		})

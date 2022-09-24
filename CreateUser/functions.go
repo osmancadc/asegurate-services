@@ -33,7 +33,7 @@ func ConnectDatabase() (connection *sql.DB) {
 }
 
 func CheckExistingUser(conn *sql.DB, document string) (bool, error) {
-	results, err := conn.Query(`SELECT document FROM person p WHERE p.document = ?`, `10185888`)
+	results, err := conn.Query(`SELECT document FROM person p WHERE p.document = ?`, document)
 	if err != nil {
 		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
 		return false, err

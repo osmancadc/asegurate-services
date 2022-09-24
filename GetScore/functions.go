@@ -14,28 +14,30 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func ValidatePhone(conn *sql.DB, phone string) (Score, error) {
+func ValidatePhone(conn *sql.DB, phone string) (Score, string, error) {
 	score := Score{}
 
-	results, err := conn.Query(`SELECT name, lastname, score, reputation , stars, last_update FROM user u 
+	results, err := conn.Query(`SELECT p.document, name, lastname, score, reputation , stars, last_update FROM user u 
 								INNER JOIN person p ON u.document =p.document 
 								WHERE u.phone = ?`, phone)
 	if err != nil {
 		fmt.Printf(`ValidatePhone(1): %s`, err.Error())
-		return score, err
+		return score, "", err
 	}
 
 	if results.Next() {
-		err = results.Scan(&score.Name, &score.Lastname, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
+		document := ""
+		err = results.Scan(&document, &score.Name, &score.Lastname, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
 		if err != nil {
 			fmt.Printf(`ValidatePhone(2): %s`, err.Error())
-			return score, err
+
+			return score, "", err
 		}
 
-		return score, nil
+		return score, document, nil
 	}
 
-	return score, errors.New("Número de celular no encontrado")
+	return score, "", errors.New("Número de celular no encontrado")
 }
 
 func ConnectDatabase() (connection *sql.DB) {
@@ -197,7 +199,7 @@ func CalculateScore(conn *sql.DB, document, documentType string, score Score) (S
 	}
 
 	reputation := 50
-	if elapsed > 7 && documentType != `PHONE` {
+	if elapsed > 7 {
 		fmt.Println("The score was updated over a week ago")
 		reputation, err = CalculateReputation(document, documentType)
 		if err != nil {
@@ -238,14 +240,14 @@ func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayPr
 		},
 	}
 
-	score, err := ValidatePhone(conn, reqBody.Value)
+	score, document, err := ValidatePhone(conn, reqBody.Value)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
 		return response, nil
 	}
 
-	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score)
+	score, err = CalculateScore(conn, document, "CC", score)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError

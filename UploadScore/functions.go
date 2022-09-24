@@ -10,11 +10,6 @@ import (
 
 func ConnectDatabase() (connection *sql.DB) {
 
-	os.Setenv("DB_USER", "administrator")
-	os.Setenv("DB_PASSWORD", "35Yw!8uO5v5g")
-	os.Setenv("DB_HOST", "dev-asegurate.cluster-cnaioe8hvyno.us-east-1.rds.amazonaws.com")
-	os.Setenv("DB_NAME", "dev_asegurate")
-
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")

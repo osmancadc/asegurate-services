@@ -8,3 +8,5 @@ CreateUser:
   - 'CreateUser/**'
 AuthenticateUser:
   - 'AuthenticateUser/**'
+GetUserData:
+  - 'GetUserData/**'

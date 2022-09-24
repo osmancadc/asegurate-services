@@ -82,7 +82,7 @@ func InsertPerson(conn *sql.DB, document, expirationDate string) (string, error)
 	exists, err := CheckExistingUser(conn, document)
 	if err != nil {
 		fmt.Printf(`InsertPerson(1): %s`, err.Error())
-		return err
+		return "", err
 	}
 
 	if exists {

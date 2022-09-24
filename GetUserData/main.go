@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -18,13 +19,26 @@ func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		},
 	}
 
-	fmt.Println("====================================")
-	fmt.Println(req.PathParameters["user_id"])
-	fmt.Println("====================================")
-	fmt.Printf("-> %v", req.PathParameters)
-	fmt.Println("====================================")
+	document := req.PathParameters["user_id"]
 
-	response.Body = req.QueryStringParameters["user_id"]
+	conn := ConnectDatabase()
+	defer conn.Close()
+
+	user, err := GetUserData(document, conn)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	userJson, err := json.Marshal(user)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	response.Body = string(userJson)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

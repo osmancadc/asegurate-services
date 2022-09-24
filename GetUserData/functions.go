@@ -22,3 +22,27 @@ func ConnectDatabase() (connection *sql.DB) {
 
 	return
 }
+
+func GetUserData(document string, conn *sql.DB) (User, error) {
+	user := User{
+		Document: document,
+	}
+
+	results, err := conn.Query(`SELECT CONCAT(name,' ',lastname) name, email, phone, photo FROM person p 
+								INNER JOIN user u ON p.document = u.document
+								WHERE p.document = ?`, document)
+	if err != nil {
+		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
+		return user, err
+	}
+
+	if results.Next() {
+		err = results.Scan(&user.Name, &user.Email, &user.Phone, &user.Photo)
+		if err != nil {
+			fmt.Printf(`GetStoredScore(2): %s`, err.Error())
+			return user, err
+		}
+	}
+
+	return user, nil
+}

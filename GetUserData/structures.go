@@ -1,6 +1,9 @@
 package main
 
-type RequestBody struct {
+type User struct {
 	Document string `json:"document"`
-	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Photo    string `json:"photo"`
 }

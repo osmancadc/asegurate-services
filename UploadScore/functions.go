@@ -23,14 +23,14 @@ func ConnectDatabase() (connection *sql.DB) {
 
 	return
 }
-func UploadScore(conn *sql.DB, author, stars int, objective, comments string) error {
-	query, err := conn.Prepare(`INSERT INTO dev_asegurate.score (author, objective, stars, coments) VALUES(?, ?, ?, ?); `)
+func UploadScore(conn *sql.DB, author, score int, objective, comments string) error {
+	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, coments) VALUES(?, ?, ?, ?); `)
 	if err != nil {
 		fmt.Printf("UploadScore(1) %s", err.Error())
 		return err
 	}
 
-	_, err = query.Exec(author, objective, stars, comments)
+	_, err = query.Exec(author, objective, score, comments)
 	if err != nil {
 		fmt.Printf("UploadScore(2) %s", err.Error())
 		return err

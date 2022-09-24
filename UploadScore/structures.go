@@ -1,6 +1,8 @@
 package main
 
 type RequestBody struct {
-	Name     string `json:"name"`
-	LastName string `json:"lastname"`
+	Author   int    `json:"author"`
+	Document string `json:"document"`
+	Score    int    `json:"score"`
+	Comments string `json:"comments"`
 }

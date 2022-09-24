@@ -115,7 +115,7 @@ func InsertPerson(conn *sql.DB, document, expirationDate string) error {
 
 func InsertUser(conn *sql.DB, email, phone, password, document, role string) error {
 
-	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?,?)`)
+	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		fmt.Printf("InsertUser(1) %s", err.Error())
 		return err

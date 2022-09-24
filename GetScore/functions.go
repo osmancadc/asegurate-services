@@ -3,16 +3,47 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	_ "github.com/go-sql-driver/mysql"
 )
 
+func ValidatePhone(conn *sql.DB, phone string) (Score, error) {
+	score := Score{}
+
+	results, err := conn.Query(`SELECT name, lastname, score, reputation , stars, last_update FROM user u 
+								INNER JOIN person p ON u.document =p.document 
+								WHERE u.phone = ?`, phone)
+	if err != nil {
+		fmt.Printf(`ValidatePhone(1): %s`, err.Error())
+		return score, err
+	}
+
+	if results.Next() {
+		err = results.Scan(&score.Name, &score.Lastname, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
+		if err != nil {
+			fmt.Printf(`ValidatePhone(2): %s`, err.Error())
+			return score, err
+		}
+
+		return score, nil
+	}
+
+	return score, errors.New("Número de celular no encontrado")
+}
+
 func ConnectDatabase() (connection *sql.DB) {
+	os.Setenv("DB_USER", "administrator")
+	os.Setenv("DB_PASSWORD", "35Yw!8uO5v5g")
+	os.Setenv("DB_HOST", "dev-asegurate.cluster-cnaioe8hvyno.us-east-1.rds.amazonaws.com")
+	os.Setenv("DB_NAME", "dev_asegurate")
+
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
@@ -57,11 +88,9 @@ func DaysSinceLastUpdate(lastUpdate string) (int, error) {
 	}
 
 	return int(time.Since(lastUpdated).Hours() / 24), nil
-
 }
 
 func GetAssociatedName(document, documentType string) (string, string, error) {
-
 	url := fmt.Sprintf(`%s/cedula?documentType=%s&documentNumber=%s`, os.Getenv("DATA_URL"), documentType, document)
 	bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
 
@@ -87,22 +116,53 @@ func GetAssociatedName(document, documentType string) (string, string, error) {
 	return data.Data.FirstName, data.Data.Lastname, nil
 }
 
-func CalculateScore(document, documentType string) (Score, error) {
+func CalculateScore(conn *sql.DB, document, documentType string) (Score, error) {
 
 	score := Score{}
 
 	name, lastname, err := GetAssociatedName(document, documentType)
 	if err != nil {
+		fmt.Printf(`CalculateScore(1): %s`, err.Error())
 		return score, err
 	}
 
-	min := 50
-	max := 100
-	score.Name = name
-	score.Lastname = lastname
-	score.Reputation = rand.Intn(max-min) + min
-	score.Score = rand.Intn(max-min) + min
-	score.Stars = rand.Intn(4) + 1
+	reputation := 50
+	scoreAverage := 50
+	var scoreArray []int
+
+	results, err := conn.Query(`SELECT score FROM score WHERE objective = ?`, document)
+	if err != nil {
+		fmt.Printf(`CalculateScore(2): %s`, err.Error())
+		return score, err
+	}
+
+	for results.Next() {
+		auxScore := 0
+		err = results.Scan(&auxScore)
+		if err != nil {
+			fmt.Printf(`CalculateScore(3): %s`, err.Error())
+			return score, err
+		}
+		scoreArray = append(scoreArray, auxScore)
+	}
+
+	if len(scoreArray) > 0 {
+		sum := 0
+		for _, i := range scoreArray {
+			sum += i
+		}
+		scoreAverage = int(sum / len(scoreArray))
+	}
+
+	stars := int((scoreAverage + reputation) / 40)
+
+	score = Score{
+		Name:       name,
+		Lastname:   lastname,
+		Score:      scoreAverage,
+		Reputation: reputation,
+		Stars:      stars,
+	}
 
 	return score, nil
 }
@@ -143,4 +203,87 @@ func SaveNewPerson(conn *sql.DB, score Score, document string) error {
 		return err
 	}
 	return nil
+}
+
+func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
+	response := events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+
+	score, err := ValidatePhone(conn, reqBody.Value)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	response.Body = GetResponseBody(score, reqBody.Value)
+	response.StatusCode = http.StatusOK
+	return response, nil
+}
+
+func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
+
+	response := events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+
+	score, isStored, err := GetStoredScore(conn, reqBody.Value)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	if !isStored {
+		fmt.Println("No previous score was found")
+
+		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, nil
+		}
+
+		err = SaveNewPerson(conn, score, reqBody.Value)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, nil
+		}
+
+		response.Body = GetResponseBody(score, reqBody.Value)
+		response.StatusCode = http.StatusOK
+		return response, nil
+	}
+
+	fmt.Println("Found previous score")
+
+	elapsed, err := DaysSinceLastUpdate(score.Updated)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	if elapsed > 7 {
+		fmt.Println("The score was updated over a week ago")
+		score, _ := CalculateScore(conn, reqBody.Value, reqBody.Type)
+
+		response.Body = GetResponseBody(score, reqBody.Value)
+		response.StatusCode = http.StatusOK
+		return response, nil
+	}
+
+	response.Body = GetResponseBody(score, reqBody.Value)
+	response.StatusCode = http.StatusOK
+	return response, nil
 }

@@ -36,7 +36,7 @@ func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxy
 		return response, nil
 	}
 
-	id, err := InsertUser(conn, reqBody.Email, reqBody.Phone, reqBody.Password, reqBody.Document, reqBody.Role)
+	err = InsertUser(conn, reqBody.Email, reqBody.Phone, reqBody.Password, reqBody.Document, reqBody.Role)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError

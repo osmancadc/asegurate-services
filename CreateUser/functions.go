@@ -49,7 +49,7 @@ func CheckExistingUser(conn *sql.DB, document string) (bool, error) {
 
 func GetPersonData(document, expirationDate string) (PersonData, error) {
 	person := &Person{
-		Data: Data{
+		Data: PersonData{
 			IsAlive: false,
 		},
 	}
@@ -97,13 +97,13 @@ func InsertPerson(conn *sql.DB, document, expirationDate string) error {
 	}
 
 	if !personData.IsAlive {
-		fmt.Println(`InsertPerson(2): The document is not valid`)
+		fmt.Println(`InsertPerson(4): The document is not valid`)
 		return errors.New("User already exists")
 	}
 
 	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, 50, 0, 50, CURRENT_TIMESTAMP)`)
 	if err != nil {
-		fmt.Printf("InsertPerson(3) %s", err.Error())
+		fmt.Printf("InsertPerson(5) %s", err.Error())
 		return err
 	}
 
@@ -113,20 +113,20 @@ func InsertPerson(conn *sql.DB, document, expirationDate string) error {
 	return nil
 }
 
-func InsertUser(conn *sql.DB, username, email, phone, password, document, role string) (int64, error) {
+func InsertUser(conn *sql.DB, email, phone, password, document, role string) error {
 
-	query, err := conn.Prepare(`INSERT INTO user (username, email, phone, password, document, role) VALUES (?, ?, ?, ?, ?,?)`)
+	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?,?)`)
 	if err != nil {
 		fmt.Printf("InsertUser(1) %s", err.Error())
-		return -1, err
+		return err
 	}
 
-	data, err := query.Exec(username, email, phone, password, document, role)
+	data, err := query.Exec(email, phone, password, document, role)
 	if err != nil {
 		fmt.Printf("InsertUser(2) %s", err.Error())
-		return -1, err
+		return err
 	}
 
-	id, _ := data.LastInsertId()
-	return id, nil
+	data.LastInsertId()
+	return nil
 }

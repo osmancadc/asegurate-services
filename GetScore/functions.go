@@ -116,57 +116,6 @@ func GetAssociatedName(document, documentType string) (string, string, error) {
 	return data.Data.FirstName, data.Data.Lastname, nil
 }
 
-func CalculateScore(conn *sql.DB, document, documentType string) (Score, error) {
-
-	score := Score{}
-
-	name, lastname, err := GetAssociatedName(document, documentType)
-	if err != nil {
-		fmt.Printf(`CalculateScore(1): %s`, err.Error())
-		return score, err
-	}
-
-	reputation := 50
-	scoreAverage := 50
-	var scoreArray []int
-
-	results, err := conn.Query(`SELECT score FROM score WHERE objective = ?`, document)
-	if err != nil {
-		fmt.Printf(`CalculateScore(2): %s`, err.Error())
-		return score, err
-	}
-
-	for results.Next() {
-		auxScore := 0
-		err = results.Scan(&auxScore)
-		if err != nil {
-			fmt.Printf(`CalculateScore(3): %s`, err.Error())
-			return score, err
-		}
-		scoreArray = append(scoreArray, auxScore)
-	}
-
-	if len(scoreArray) > 0 {
-		sum := 0
-		for _, i := range scoreArray {
-			sum += i
-		}
-		scoreAverage = int(sum / len(scoreArray))
-	}
-
-	stars := int((scoreAverage + reputation) / 40)
-
-	score = Score{
-		Name:       name,
-		Lastname:   lastname,
-		Score:      scoreAverage,
-		Reputation: reputation,
-		Stars:      stars,
-	}
-
-	return score, nil
-}
-
 func GetResponseBody(score Score, document string) string {
 	certified := (rand.Intn(1) == 1)
 	fullname := fmt.Sprintf(`%s %s`, score.Name, score.Lastname)
@@ -205,6 +154,81 @@ func SaveNewPerson(conn *sql.DB, score Score, document string) error {
 	return nil
 }
 
+func CalculateReputation(document, documentType string) (int, error) {
+	return 50, nil
+}
+
+func CalculateInternalScore(conn *sql.DB, document string) (int, error) {
+	var scoreArray []int
+
+	results, err := conn.Query(`SELECT score FROM score WHERE objective = ?`, document)
+	if err != nil {
+		fmt.Printf(`CalculateScore(2): %s`, err.Error())
+		return -1, err
+	}
+
+	for results.Next() {
+		auxScore := 0
+		err = results.Scan(&auxScore)
+		if err != nil {
+			fmt.Printf(`CalculateScore(3): %s`, err.Error())
+			return -1, err
+		}
+		scoreArray = append(scoreArray, auxScore)
+	}
+
+	if len(scoreArray) > 0 {
+		sum := 0
+		for _, i := range scoreArray {
+			sum += i
+		}
+		return int(sum / len(scoreArray)), nil
+	}
+
+	return 50, nil
+
+}
+
+func CalculateScore(conn *sql.DB, document, documentType string, score Score) (Score, error) {
+
+	elapsed, err := DaysSinceLastUpdate(score.Updated)
+	if err != nil {
+		return score, err
+	}
+
+	reputation := 50
+	if elapsed > 7 && documentType != `PHONE` {
+		fmt.Println("The score was updated over a week ago")
+		reputation, err = CalculateReputation(document, documentType)
+		if err != nil {
+			return score, err
+		}
+	}
+
+	name, lastname, err := GetAssociatedName(document, documentType)
+	if err != nil {
+		fmt.Printf(`CalculateScore(1): %s`, err.Error())
+		return score, err
+	}
+
+	scoreAverage, err := CalculateInternalScore(conn, document)
+	if err != nil {
+		return score, nil
+	}
+
+	stars := int((scoreAverage + reputation) / 40)
+
+	score = Score{
+		Name:       name,
+		Lastname:   lastname,
+		Score:      scoreAverage,
+		Reputation: reputation,
+		Stars:      stars,
+	}
+
+	return score, nil
+}
+
 func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -215,6 +239,13 @@ func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayPr
 	}
 
 	score, err := ValidatePhone(conn, reqBody.Value)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
@@ -246,7 +277,7 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 	if !isStored {
 		fmt.Println("No previous score was found")
 
-		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type)
+		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type, score)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
@@ -267,19 +298,10 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 
 	fmt.Println("Found previous score")
 
-	elapsed, err := DaysSinceLastUpdate(score.Updated)
+	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	if elapsed > 7 {
-		fmt.Println("The score was updated over a week ago")
-		score, _ := CalculateScore(conn, reqBody.Value, reqBody.Type)
-
-		response.Body = GetResponseBody(score, reqBody.Value)
-		response.StatusCode = http.StatusOK
 		return response, nil
 	}
 

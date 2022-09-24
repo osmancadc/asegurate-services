@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -16,6 +17,12 @@ func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 			"Access-Control-Allow-Methods": "POST",
 		},
 	}
+
+	fmt.Println("====================================")
+	fmt.Println(req.QueryStringParameters["user_id"])
+	fmt.Println("====================================")
+	fmt.Printf("-> %v", req.QueryStringParameters)
+	fmt.Println("====================================")
 
 	response.Body = req.QueryStringParameters["user_id"]
 	response.StatusCode = http.StatusOK

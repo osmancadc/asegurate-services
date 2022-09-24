@@ -29,7 +29,7 @@ func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxy
 	conn := ConnectDatabase()
 	defer conn.Close()
 
-	err = InsertPerson(conn, reqBody.Document, reqBody.ExpirationDate)
+	name, err := InsertPerson(conn, reqBody.Document, reqBody.ExpirationDate)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
@@ -43,7 +43,7 @@ func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxy
 		return response, nil
 	}
 
-	response.Body = fmt.Sprintf(`{ "message": "user created successfully (AWS)"}`)
+	response.Body = fmt.Sprintf(`{ "message": "user created successfully (AWS)","name":"%s"}`, name)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

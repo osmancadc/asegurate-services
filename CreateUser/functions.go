@@ -92,7 +92,7 @@ func InsertPerson(conn *sql.DB, document, expirationDate string) error {
 
 	personData, err := GetPersonData(document, expirationDate)
 	if err != nil {
-		fmt.Println(`InsertPerson(3): %s`, err.Error())
+		fmt.Printf(`InsertPerson(3): %s`, err.Error())
 		return errors.New(err.Error())
 	}
 

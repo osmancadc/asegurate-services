@@ -10,3 +10,5 @@ AuthenticateUser:
   - 'AuthenticateUser/**'
 GetUserData:
   - 'GetUserData/**'
+GetPersonName:
+  - 'GetPersonName/**'

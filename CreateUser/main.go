@@ -43,7 +43,7 @@ func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxy
 		return response, nil
 	}
 
-	response.Body = fmt.Sprintf(`{ "message": "user created successfully (AWS)","name":"%s"}`, name)
+	response.Body = fmt.Sprintf(`{ "message": "user created successfully","name":"%s"}`, name)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }

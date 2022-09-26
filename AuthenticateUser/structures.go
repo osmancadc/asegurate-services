@@ -1,7 +1,7 @@
 package main
 
 type RequestBody struct {
-	Username string `json:"username"`
+	Document string `json:"document"`
 	Password string `json:"password"`
 }
 

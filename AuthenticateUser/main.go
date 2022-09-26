@@ -29,11 +29,9 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 	conn := ConnectDatabase()
 	defer conn.Close()
 
-	//TODO Format Query to use the "?" nomeclature
-
-	results, err := conn.Query(fmt.Sprintf(`SELECT u.document id, CONCAT(p.name," ",p.lastname) name,u.role FROM user u
+	results, err := conn.Query(`SELECT u.document id, CONCAT(p.name," ",p.lastname) name,u.role FROM user u
 												INNER JOIN person p on u.document = p.document
-												WHERE u.username = '%s' and u.password = '%s'`, data.Username, data.Password))
+												WHERE u.document = ? and u.password = ?`, data.Document, data.Password)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{"error_code":"DB01","message":"%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError

@@ -60,12 +60,16 @@ func GetFromProvider(dataType, dataValue string) (bool, string, error) {
 		bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
 
 		request, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Printf(`GetFromProvider(1) %s`, err.Error())
+			return false, "", err
+		}
 		request.Header.Add(`Authorization`, bearer)
 
 		client := &http.Client{}
 		result, err := client.Do(request)
 		if err != nil {
-			fmt.Printf(`GetFromProvider(1) %s`, err.Error())
+			fmt.Printf(`GetFromProvider(2) %s`, err.Error())
 			return false, "", err
 		}
 		defer result.Body.Close()
@@ -74,7 +78,7 @@ func GetFromProvider(dataType, dataValue string) (bool, string, error) {
 
 		err = json.NewDecoder(result.Body).Decode(data)
 		if err != nil {
-			fmt.Printf(`GetFromProvider(2) %s`, err.Error())
+			fmt.Printf(`GetFromProvider(3) %s`, err.Error())
 			return false, "", err
 		}
 

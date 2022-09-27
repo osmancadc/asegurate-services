@@ -83,6 +83,11 @@ func GetStoredScore(conn *sql.DB, document string) (Score, bool, error) {
 }
 
 func DaysSinceLastUpdate(lastUpdate string) (int, error) {
+
+	if lastUpdate == "" {
+		return 1, nil
+	}
+
 	lastUpdated, err := time.Parse("2006-01-02 15:04:05", lastUpdate)
 	if err != nil {
 		fmt.Printf(`DaysSinceLastUpdate(1)  %s`, err.Error())

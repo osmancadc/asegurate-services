@@ -299,7 +299,14 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 			return response, nil
 		}
 
-		response.Body = GetResponseBody(score, reqBody.Value)
+		photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, nil
+		}
+
+		response.Body = GetResponseBody(score, reqBody.Value, photo)
 		response.StatusCode = http.StatusOK
 		return response, nil
 	}

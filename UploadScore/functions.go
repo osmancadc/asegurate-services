@@ -72,7 +72,7 @@ func GetAuthorId(conn *sql.DB, document string) (int, error) {
 
 	id := 0
 
-	results, err := conn.Query(`SELECT user_id FORM user u WHERE u.document = ?`, document)
+	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
 	if err != nil {
 		fmt.Printf(`GetFromDatabase(1): %s`, err.Error())
 		return -1, err

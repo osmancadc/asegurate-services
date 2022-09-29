@@ -24,7 +24,10 @@ func ConnectDatabase() (connection *sql.DB) {
 	return
 }
 func UploadScore(conn *sql.DB, author, score int, objective, comments string) error {
-	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, coments) VALUES(?, ?, ?, ?); `)
+
+	fmt.Printf("New score: \nauthor: %d \nobjective: %s \nscore: %d comments:%s", author, objective, score, comments)
+
+	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, coments) VALUES(?, ?, ?, ?)`)
 	if err != nil {
 		fmt.Printf("UploadScore(1) %s", err.Error())
 		return err

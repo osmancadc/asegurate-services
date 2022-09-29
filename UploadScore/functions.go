@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 
@@ -23,10 +24,29 @@ func ConnectDatabase() (connection *sql.DB) {
 
 	return
 }
-func UploadScore(conn *sql.DB, author, score int, objective, comments string) error {
 
-	fmt.Printf("New score: \nauthor: %d \nobjective: %s \nscore: %d comments:%s", author, objective, score, comments)
+func UploadScorePhone(conn *sql.DB, author, score int, phone, comments string) error {
+	objective := ""
 
+	results, err := conn.Query(`SELECT document FROM user u WHERE u.phone = ?`, phone)
+	if err != nil {
+		fmt.Printf(`UploadScorePhone(1): %s`, err.Error())
+		return err
+	}
+
+	if results.Next() {
+		err = results.Scan(&objective)
+		if err != nil {
+			fmt.Printf(`UploadScorePhone(2): %s`, err.Error())
+			return err
+		}
+		return UploadScoreDocument(conn, author, score, objective, comments)
+	}
+
+	return errors.New("no se encontró ningún usuario asociado")
+}
+
+func UploadScoreDocument(conn *sql.DB, author, score int, objective, comments string) error {
 	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, coments) VALUES(?, ?, ?, ?)`)
 	if err != nil {
 		fmt.Printf("UploadScore(1) %s", err.Error())

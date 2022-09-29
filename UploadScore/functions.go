@@ -67,3 +67,26 @@ func UploadScoreDocument(conn *sql.DB, author, score int, objective, comments st
 
 	return nil
 }
+
+func GetAuthorId(conn *sql.DB, document string) (int, error) {
+
+	id := 0
+
+	results, err := conn.Query(`SELECT user_id FORM user u WHERE u.document = ?`, document)
+	if err != nil {
+		fmt.Printf(`GetFromDatabase(1): %s`, err.Error())
+		return -1, err
+	}
+
+	if results.Next() {
+		err = results.Scan(&id)
+		if err != nil {
+			fmt.Printf(`GetFromDatabase(2): %s`, err.Error())
+			return -1, err
+		}
+		return id, nil
+	}
+
+	return -1, errors.New("no user found")
+
+}

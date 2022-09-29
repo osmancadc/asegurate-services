@@ -31,9 +31,16 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 
 	fmt.Printf("Request: %v", reqBody)
 
+	authorId, err := GetAuthorId(conn, reqBody.Author)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
 	if reqBody.Type == `CC` {
 		fmt.Printf("Ento a CC")
-		err = UploadScoreDocument(conn, reqBody.Author, reqBody.Score, reqBody.Value, reqBody.Comments)
+		err = UploadScoreDocument(conn, authorId, reqBody.Score, reqBody.Value, reqBody.Comments)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
@@ -41,7 +48,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		}
 	} else {
 		fmt.Printf("Ento a PHONE")
-		err = UploadScorePhone(conn, reqBody.Author, reqBody.Score, reqBody.Value, reqBody.Comments)
+		err = UploadScorePhone(conn, authorId, reqBody.Score, reqBody.Value, reqBody.Comments)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError

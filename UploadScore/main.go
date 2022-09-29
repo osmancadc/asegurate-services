@@ -29,7 +29,10 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 	conn := ConnectDatabase()
 	defer conn.Close()
 
+	fmt.Printf("Request: %v", reqBody)
+
 	if reqBody.Type == `CC` {
+		fmt.Printf("Ento a CC")
 		err = UploadScoreDocument(conn, reqBody.Author, reqBody.Score, reqBody.Value, reqBody.Comments)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
@@ -37,6 +40,7 @@ func HanderUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 			return response, nil
 		}
 	} else {
+		fmt.Printf("Ento a PHONE")
 		err = UploadScorePhone(conn, reqBody.Author, reqBody.Score, reqBody.Value, reqBody.Comments)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())

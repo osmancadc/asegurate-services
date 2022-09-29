@@ -53,6 +53,12 @@ func UploadScoreDocument(conn *sql.DB, author, score int, objective, comments st
 		return err
 	}
 
+	fmt.Println(query)
+	fmt.Println(author)
+	fmt.Println(objective)
+	fmt.Println(score)
+	fmt.Println(comments)
+
 	_, err = query.Exec(author, objective, score, comments)
 	if err != nil {
 		fmt.Printf("UploadScore(2) %s", err.Error())

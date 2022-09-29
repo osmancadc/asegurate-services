@@ -19,7 +19,7 @@ func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		},
 	}
 
-	document := req.PathParameters["user_id"]
+	document := req.PathParameters["document"]
 
 	conn := ConnectDatabase()
 	defer conn.Close()

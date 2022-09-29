@@ -41,11 +41,6 @@ func ValidatePhone(conn *sql.DB, phone string) (Score, string, error) {
 }
 
 func ConnectDatabase() (connection *sql.DB) {
-	os.Setenv("DB_USER", "administrator")
-	os.Setenv("DB_PASSWORD", "35Yw!8uO5v5g")
-	os.Setenv("DB_HOST", "dev-asegurate.cluster-cnaioe8hvyno.us-east-1.rds.amazonaws.com")
-	os.Setenv("DB_NAME", "dev_asegurate")
-
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
@@ -123,10 +118,9 @@ func GetAssociatedName(document, documentType string) (string, string, error) {
 	return data.Data.FirstName, data.Data.Lastname, nil
 }
 
-func GetResponseBody(score Score, document string) string {
+func GetResponseBody(score Score, document, photo string) string {
 	certified := (rand.Intn(1) == 1)
 	fullname := fmt.Sprintf(`%s %s`, score.Name, score.Lastname)
-	profile_picture := "https://i.postimg.cc/yxNwV2Cm/user-01.png"
 
 	return fmt.Sprintf(`{
 		"name": "%s",
@@ -136,7 +130,7 @@ func GetResponseBody(score Score, document string) string {
 		"score": %d,
 		"certified": %t,
 		"photo": "%s"
-	}`, fullname, document, score.Stars, score.Reputation, score.Score, certified, profile_picture)
+	}`, fullname, document, score.Stars, score.Reputation, score.Score, certified, photo)
 }
 
 func SaveNewPerson(conn *sql.DB, score Score, document string) error {
@@ -259,7 +253,14 @@ func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayPr
 		return response, nil
 	}
 
-	response.Body = GetResponseBody(score, reqBody.Value)
+	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	response.Body = GetResponseBody(score, reqBody.Value, photo)
 	response.StatusCode = http.StatusOK
 	return response, nil
 }
@@ -312,7 +313,42 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 		return response, nil
 	}
 
-	response.Body = GetResponseBody(score, reqBody.Value)
+	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, nil
+	}
+
+	response.Body = GetResponseBody(score, reqBody.Value, photo)
 	response.StatusCode = http.StatusOK
 	return response, nil
+}
+
+func GetPersonPhoto(conn *sql.DB, dataValue, dataType string) (string, error) {
+	photo := ``
+	query := ``
+
+	if dataType == `CC` {
+		query = `SELECT photo name FROM person p WHERE p.document = ?`
+	} else {
+		query = `SELECT p.photo name FROM person p INNER JOIN user u ON p.document =u.document WHERE u.phone = ?`
+	}
+
+	results, err := conn.Query(query, dataValue)
+	if err != nil {
+		fmt.Printf(`GetPersonPhoto(1): %s`, err.Error())
+		return "", err
+	}
+
+	if results.Next() {
+		err = results.Scan(&photo)
+		if err != nil {
+			fmt.Printf(`GetPersonPhoto(2): %s`, err.Error())
+			return "", err
+		}
+		return photo, nil
+	}
+
+	return "", nil
 }

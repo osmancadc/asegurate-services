@@ -42,7 +42,7 @@ func TestUploadScorePhone(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{"document"}
+	columns := []string{`document`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`3001234567`).

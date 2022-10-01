@@ -18,7 +18,7 @@ func TestHanderUploadScore(t *testing.T) {
 			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 		}
 
-		columns := []string{"user_id"}
+		columns := []string{`user_id`}
 
 		// First test mocks
 

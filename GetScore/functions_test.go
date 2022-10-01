@@ -20,7 +20,7 @@ func TestValidatePhone(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{"document", "name", "lastname", "score", "reputation", "stars", "last_update"}
+	columns := []string{`document`, `name`, `lastname`, `score`, `reputation`, `stars`, `last_update`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`3001234567`).
@@ -220,7 +220,7 @@ func TestDaysSinceLastUpdate(t *testing.T) {
 }
 
 func TestGetAssociatedName(t *testing.T) {
-	os.Setenv(`DATA_URL`, `https://asegurate2.free.beeceptor.com`)
+	os.Setenv(`DATA_URL`, `https://asegurate3.free.beeceptor.com`)
 	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
 
 	type args struct {
@@ -360,7 +360,7 @@ func TestCalculateInternalScore(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{"score"}
+	columns := []string{`score`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
@@ -420,7 +420,7 @@ func TestGetPersonPhoto(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{"photo"}
+	columns := []string{`photo`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).

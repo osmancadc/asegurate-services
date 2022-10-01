@@ -20,7 +20,7 @@ func TestConnectDatabase(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Error test",
+			name:    "Success Test",
 			wantErr: false,
 		},
 	}
@@ -43,7 +43,7 @@ func TestGetFromDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{"name"}
+	columns := []string{`name`}
 	columns_error := []string{`some`, `some2`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
@@ -67,7 +67,7 @@ func TestGetFromDatabase(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Success test - Using document",
+			name: "Success Test Using document",
 			args: args{
 				conn:      db,
 				dataType:  `CC`,
@@ -78,7 +78,7 @@ func TestGetFromDatabase(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Error test - Incorrect number of columns in response",
+			name: "Error Test Incorrect number of columns in response",
 			args: args{
 				conn:      db,
 				dataType:  `PHONE`,
@@ -107,7 +107,7 @@ func TestGetFromDatabase(t *testing.T) {
 }
 
 func TestGetFromProvider(t *testing.T) {
-	os.Setenv(`DATA_URL`, `https://asegurate2.free.beeceptor.com`)
+	os.Setenv(`DATA_URL`, `https://asegurate3.free.beeceptor.com`)
 	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
 	type args struct {
 		dataType  string
@@ -121,7 +121,7 @@ func TestGetFromProvider(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Success test - Provider response",
+			name: "Success Test Provider Response",
 			args: args{
 				dataType:  `CC`,
 				dataValue: `123456`,

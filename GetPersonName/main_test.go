@@ -7,8 +7,9 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
+//TODO: Update Getdatabase mock function to increase percentage of coverage
 func TestHanderGetPersonName(t *testing.T) {
-	os.Setenv(`DATA_URL`, `https://asegurate2.free.beeceptor.com`)
+	os.Setenv(`DATA_URL`, `https://asegurate3.free.beeceptor.com`)
 	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
 	type args struct {
 		req events.APIGatewayProxyRequest

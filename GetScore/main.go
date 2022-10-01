@@ -25,7 +25,11 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 		return response, err
 	}
 
-	conn := ConnectDatabase()
+	conn, err := ConnectDatabase()
+	if err != nil {
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
 	defer conn.Close()
 
 	if reqBody.Type == `CC` {

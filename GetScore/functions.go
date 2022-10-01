@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -13,6 +12,163 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	_ "github.com/go-sql-driver/mysql"
 )
+
+func ConnectDatabase() (connection *sql.DB, err error) {
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	host := os.Getenv("DB_HOST")
+	database := os.Getenv("DB_NAME")
+
+	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+	if err != nil {
+		fmt.Printf(`Error conectando DB %s`, err.Error())
+		return nil, err
+	}
+
+	return
+}
+
+func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
+
+	response := events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+
+	score, isStored, err := GetStoredScore(conn, reqBody.Value)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	if !isStored {
+		fmt.Println("No previous score was found")
+
+		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type, score)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, err
+		}
+
+		err = SaveNewPerson(conn, score, reqBody.Value)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, err
+		}
+
+		photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
+		if err != nil {
+			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+			response.StatusCode = http.StatusInternalServerError
+			return response, err
+		}
+
+		response.Body = GetResponseBody(score, reqBody.Value, photo)
+		response.StatusCode = http.StatusOK
+		return response, nil
+	}
+
+	fmt.Println("Found previous score")
+
+	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	response.Body = GetResponseBody(score, reqBody.Value, photo)
+	response.StatusCode = http.StatusOK
+	return response, nil
+}
+
+func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
+	response := events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+
+	score, document, err := ValidatePhone(conn, reqBody.Value)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	score, err = CalculateScore(conn, document, "CC", score)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
+	if err != nil {
+		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
+
+	response.Body = GetResponseBody(score, reqBody.Value, photo)
+	response.StatusCode = http.StatusOK
+	return response, nil
+}
+
+func CalculateScore(conn *sql.DB, document, documentType string, score Score) (Score, error) {
+
+	elapsed, err := DaysSinceLastUpdate(score.Updated)
+	if err != nil {
+		return score, err
+	}
+
+	reputation := 50
+	if elapsed > 7 {
+		fmt.Println("The score was updated over a week ago")
+		reputation, err = CalculateReputation(document, documentType)
+		if err != nil {
+			return score, err
+		}
+	}
+
+	name, lastname, err := GetAssociatedName(document, documentType)
+	if err != nil {
+		fmt.Printf(`CalculateScore(1): %s`, err.Error())
+		return score, err
+	}
+
+	scoreAverage, err := CalculateInternalScore(conn, document)
+	if err != nil {
+		return score, err
+	}
+
+	stars := int((scoreAverage + reputation) / 40)
+
+	score = Score{
+		Name:       name,
+		Lastname:   lastname,
+		Score:      scoreAverage,
+		Reputation: reputation,
+		Stars:      stars,
+	}
+
+	return score, nil
+}
 
 func ValidatePhone(conn *sql.DB, phone string) (Score, string, error) {
 	score := Score{}
@@ -37,28 +193,13 @@ func ValidatePhone(conn *sql.DB, phone string) (Score, string, error) {
 		return score, document, nil
 	}
 
-	return score, "", errors.New("Número de celular no encontrado")
-}
-
-func ConnectDatabase() (connection *sql.DB) {
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	database := os.Getenv("DB_NAME")
-
-	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
-	if err != nil {
-		fmt.Printf(`Error conectando DB %s`, err.Error())
-		panic(err.Error())
-	}
-
-	return
+	return score, "", errors.New("número de celular no encontrado")
 }
 
 func GetStoredScore(conn *sql.DB, document string) (Score, bool, error) {
 	score := Score{}
 
-	results, err := conn.Query(`select name, lastname, score, reputation, stars, last_update  from person p  where p.document = ?`, document)
+	results, err := conn.Query(`SELECT name, lastname, score, reputation, stars, last_update FROM person p  where p.document = ?`, document)
 	if err != nil {
 		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
 		return score, false, err
@@ -83,7 +224,7 @@ func DaysSinceLastUpdate(lastUpdate string) (int, error) {
 		return 1, nil
 	}
 
-	lastUpdated, err := time.Parse("2006-01-02 15:04:05", lastUpdate)
+	lastUpdated, err := time.Parse(`2006-01-02 15:04:05`, lastUpdate)
 	if err != nil {
 		fmt.Printf(`DaysSinceLastUpdate(1)  %s`, err.Error())
 		return -1, err
@@ -97,40 +238,30 @@ func GetAssociatedName(document, documentType string) (string, string, error) {
 	bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
 
 	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Printf(`GetAssociatedName(1) %s`, err.Error())
+		return "", "", err
+	}
 	request.Header.Add(`Authorization`, bearer)
 
 	client := &http.Client{}
 	result, err := client.Do(request)
 	if err != nil {
-		fmt.Printf(`GetAssociatedName(1) %s`, err.Error())
+		fmt.Printf(`GetAssociatedName(2) %s`, err.Error())
 		return "", "", err
 	}
 	defer result.Body.Close()
 
 	data := &Person{}
+	fmt.Println(result.StatusCode)
 
 	err = json.NewDecoder(result.Body).Decode(data)
 	if err != nil {
-		fmt.Printf(`GetAssociatedName(2) %s`, err.Error())
+		fmt.Printf(`GetAssociatedName(3) %s`, err.Error())
 		return "", "", err
 	}
 
 	return data.Data.FirstName, data.Data.Lastname, nil
-}
-
-func GetResponseBody(score Score, document, photo string) string {
-	certified := (rand.Intn(1) == 1)
-	fullname := fmt.Sprintf(`%s %s`, score.Name, score.Lastname)
-
-	return fmt.Sprintf(`{
-		"name": "%s",
-		"document": "%s",
-		"stars": %d,
-		"reputation": %d,
-		"score": %d,
-		"certified": %t,
-		"photo": "%s"
-	}`, fullname, document, score.Stars, score.Reputation, score.Score, certified, photo)
 }
 
 func SaveNewPerson(conn *sql.DB, score Score, document string) error {
@@ -187,149 +318,6 @@ func CalculateInternalScore(conn *sql.DB, document string) (int, error) {
 	}
 
 	return 50, nil
-
-}
-
-func CalculateScore(conn *sql.DB, document, documentType string, score Score) (Score, error) {
-
-	elapsed, err := DaysSinceLastUpdate(score.Updated)
-	if err != nil {
-		return score, err
-	}
-
-	reputation := 50
-	if elapsed > 7 {
-		fmt.Println("The score was updated over a week ago")
-		reputation, err = CalculateReputation(document, documentType)
-		if err != nil {
-			return score, err
-		}
-	}
-
-	name, lastname, err := GetAssociatedName(document, documentType)
-	if err != nil {
-		fmt.Printf(`CalculateScore(1): %s`, err.Error())
-		return score, err
-	}
-
-	scoreAverage, err := CalculateInternalScore(conn, document)
-	if err != nil {
-		return score, nil
-	}
-
-	stars := int((scoreAverage + reputation) / 40)
-
-	score = Score{
-		Name:       name,
-		Lastname:   lastname,
-		Score:      scoreAverage,
-		Reputation: reputation,
-		Stars:      stars,
-	}
-
-	return score, nil
-}
-
-func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-
-	score, document, err := ValidatePhone(conn, reqBody.Value)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	score, err = CalculateScore(conn, document, "CC", score)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	response.Body = GetResponseBody(score, reqBody.Value, photo)
-	response.StatusCode = http.StatusOK
-	return response, nil
-}
-
-func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
-
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-
-	score, isStored, err := GetStoredScore(conn, reqBody.Value)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	if !isStored {
-		fmt.Println("No previous score was found")
-
-		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type, score)
-		if err != nil {
-			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-			response.StatusCode = http.StatusInternalServerError
-			return response, nil
-		}
-
-		err = SaveNewPerson(conn, score, reqBody.Value)
-		if err != nil {
-			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-			response.StatusCode = http.StatusInternalServerError
-			return response, nil
-		}
-
-		photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
-		if err != nil {
-			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-			response.StatusCode = http.StatusInternalServerError
-			return response, nil
-		}
-
-		response.Body = GetResponseBody(score, reqBody.Value, photo)
-		response.StatusCode = http.StatusOK
-		return response, nil
-	}
-
-	fmt.Println("Found previous score")
-
-	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-
-	response.Body = GetResponseBody(score, reqBody.Value, photo)
-	response.StatusCode = http.StatusOK
-	return response, nil
 }
 
 func GetPersonPhoto(conn *sql.DB, dataValue, dataType string) (string, error) {
@@ -337,9 +325,9 @@ func GetPersonPhoto(conn *sql.DB, dataValue, dataType string) (string, error) {
 	query := ``
 
 	if dataType == `CC` {
-		query = `SELECT photo name FROM person p WHERE p.document = ?`
+		query = `SELECT photo FROM person p WHERE p.document = ?`
 	} else {
-		query = `SELECT p.photo name FROM person p INNER JOIN user u ON p.document =u.document WHERE u.phone = ?`
+		query = `SELECT p.photo FROM person p INNER JOIN user u ON p.document =u.document WHERE u.phone = ?`
 	}
 
 	results, err := conn.Query(query, dataValue)
@@ -358,4 +346,19 @@ func GetPersonPhoto(conn *sql.DB, dataValue, dataType string) (string, error) {
 	}
 
 	return "", nil
+}
+
+func GetResponseBody(score Score, document, photo string) string {
+	certified := true
+	fullname := fmt.Sprintf(`%s %s`, score.Name, score.Lastname)
+
+	return fmt.Sprintf(`{
+		"name": "%s",
+		"document": "%s",
+		"stars": %d,
+		"reputation": %d,
+		"score": %d,
+		"certified": %t,
+		"photo": "%s"
+	}`, fullname, document, score.Stars, score.Reputation, score.Score, certified, photo)
 }

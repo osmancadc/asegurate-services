@@ -24,6 +24,10 @@ jobs:
           go mod tidy
           go test ./... -coverprofile coverage.out -covermode count
           go tool cover -func coverage.out
+      - name: Go Coverage Badge  
+        uses: tj-actions/coverage-badge-go@v2
+        with:
+          filename: coverage.out
       - name: Quality Check
         env:
             MINIMUM_COVERAGE: 5

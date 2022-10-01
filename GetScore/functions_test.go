@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -23,7 +24,7 @@ func TestValidatePhone(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`3001234567`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`1018500888`, `Osman`, `Beltran Murcia`, `50`, `50`, `3`, "25-06-2022"))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`, `some_name`, `some_lastname`, `50`, `50`, `3`, "25-06-2022"))
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`3007654321`).
@@ -47,14 +48,14 @@ func TestValidatePhone(t *testing.T) {
 				phone: `3001234567`,
 			},
 			want: Score{
-				Name:       "Osman",
-				Lastname:   "Beltran Murcia",
+				Name:       "some_name",
+				Lastname:   "some_lastname",
 				Score:      50,
 				Reputation: 50,
 				Stars:      3,
 				Updated:    `25-06-2022`,
 			},
-			want1:   `1018500888`,
+			want1:   `123456`,
 			wantErr: false,
 		},
 		{
@@ -96,7 +97,7 @@ func TestGetStoredScore(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT (.+) FROM person (.+)`).
 		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`Osman`, `Beltran Murcia`, `50`, `50`, `3`, "25-06-2022"))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_lastname`, `50`, `50`, `3`, "25-06-2022"))
 
 	mock.ExpectQuery(`SELECT (.+) FROM person (.+)`).
 		WithArgs(`654321`).
@@ -120,8 +121,8 @@ func TestGetStoredScore(t *testing.T) {
 				document: `123456`,
 			},
 			want: Score{
-				Name:       `Osman`,
-				Lastname:   `Beltran Murcia`,
+				Name:       `some_name`,
+				Lastname:   `some_lastname`,
 				Score:      50,
 				Reputation: 50,
 				Stars:      3,
@@ -276,13 +277,13 @@ func TestGetResponseBody(t *testing.T) {
 			name: "Success test - ",
 			args: args{
 				score: Score{
-					Name:       "Osman",
+					Name:       "some_name",
 					Lastname:   "Beltran",
 					Score:      100,
 					Reputation: 100,
 					Stars:      5,
 				},
-				document: `1018500888`,
+				document: `123456`,
 				photo:    `https://photo.jpg`,
 			},
 			want: fmt.Sprintf(`{
@@ -293,7 +294,7 @@ func TestGetResponseBody(t *testing.T) {
 		"score": %d,
 		"certified": %t,
 		"photo": "%s"
-	}`, "Osman Beltran", "1018500888", 5, 100, 100, true, "https://photo.jpg"),
+	}`, "some_name Beltran", "123456", 5, 100, 100, true, "https://photo.jpg"),
 		},
 	}
 	for _, tt := range tests {
@@ -484,6 +485,41 @@ func TestGetPersonPhoto(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("GetPersonPhoto() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCalculateReputation(t *testing.T) {
+	type args struct {
+		document     string
+		documentType string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantErr bool
+	}{
+		{
+			name: "Success test - everything ok",
+			args: args{
+				document:     `123456`,
+				documentType: `CC`,
+			},
+			want:    50,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CalculateReputation(tt.args.document, tt.args.documentType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CalculateReputation() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("CalculateReputation() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -23,7 +23,11 @@ func HanderGetPersonName(req events.APIGatewayProxyRequest) (events.APIGatewayPr
 
 	fmt.Printf(`%s -> %s`, dataType, dataValue)
 
-	conn := ConnectDatabase()
+	conn, err := ConnectDatabase()
+	if err != nil {
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
 	defer conn.Close()
 
 	found, name, err := GetFromDatabase(conn, dataType, dataValue)

@@ -19,7 +19,7 @@ func TestHanderGetPersonName(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Main test without request",
+			name:    "Handler testing with empty request",
 			args:    args{events.APIGatewayProxyRequest{}},
 			wantErr: false,
 		},

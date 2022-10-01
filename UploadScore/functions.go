@@ -9,17 +9,17 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func ConnectDatabase() (connection *sql.DB) {
+var ConnectDatabase = func() (connection *sql.DB, err error) {
 
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
 	database := os.Getenv("DB_NAME")
 
-	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
 	if err != nil {
 		fmt.Printf("ConnectDatabase(1) %s", err.Error())
-		panic(err.Error())
+		return nil, err
 	}
 
 	return
@@ -52,12 +52,6 @@ func UploadScoreDocument(conn *sql.DB, author, score int, objective, comments st
 		fmt.Printf("UploadScore(1) %s", err.Error())
 		return err
 	}
-
-	fmt.Println(query)
-	fmt.Println(author)
-	fmt.Println(objective)
-	fmt.Println(score)
-	fmt.Println(comments)
 
 	_, err = query.Exec(author, objective, score, comments)
 	if err != nil {

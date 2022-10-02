@@ -24,7 +24,6 @@ jobs:
           go mod tidy
           go test ./... -coverprofile coverage.out -covermode count
           go tool cover -func coverage.out
-      - uses: seriousben/go-patch-cover-action@v1
       - name: Quality Check
         env:
             MINIMUM_COVERAGE: 50

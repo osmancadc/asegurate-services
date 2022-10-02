@@ -18,8 +18,9 @@ jobs:
         with:
           go-version: '1.18.1'
       - name: Running unit tests
-        working-directory: ${{strategy.matrix.package}}
+        # working-directory: ${{strategy.matrix.package}}
         run: |
+          cd ${{strategy.matrix.package}}
           go mod init testing_module
           go mod tidy
           go test ./... -coverprofile coverage.out -covermode count

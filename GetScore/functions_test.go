@@ -220,7 +220,7 @@ func TestDaysSinceLastUpdate(t *testing.T) {
 }
 
 func TestGetAssociatedName(t *testing.T) {
-	os.Setenv(`DATA_URL`, `https://asegurate3.free.beeceptor.com`)
+	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
 	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
 
 	type args struct {

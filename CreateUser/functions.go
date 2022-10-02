@@ -11,17 +11,17 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func ConnectDatabase() (connection *sql.DB) {
+var ConnectDatabase = func() (connection *sql.DB, err error) {
 
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
 	database := os.Getenv("DB_NAME")
 
-	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
 	if err != nil {
 		fmt.Printf("ConnectDatabase(1) %s", err.Error())
-		panic(err.Error())
+		return nil, err
 	}
 
 	return
@@ -53,19 +53,23 @@ func GetPersonData(document, expirationDate string) (PersonData, error) {
 	bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
 
 	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Printf(`GetPersonName(1) %s`, err.Error())
+		return person.Data, err
+	}
 	request.Header.Add(`Authorization`, bearer)
 
 	client := &http.Client{}
 	result, err := client.Do(request)
 	if err != nil {
-		fmt.Printf(`GetPersonName(1) %s`, err.Error())
+		fmt.Printf(`GetPersonName(2) %s`, err.Error())
 		return person.Data, err
 	}
 	defer result.Body.Close()
 
 	err = json.NewDecoder(result.Body).Decode(person)
 	if err != nil {
-		fmt.Printf(`GetPersonName(2) %s`, err.Error())
+		fmt.Printf(`GetPersonName(3) %s`, err.Error())
 		return person.Data, err
 	}
 
@@ -77,33 +81,36 @@ func InsertPerson(conn *sql.DB, document, expirationDate string) (string, error)
 	exists, err := CheckExistingUser(conn, document)
 	if err != nil {
 		fmt.Printf(`InsertPerson(1): %s`, err.Error())
-		return "", err
+		return ``, err
 	}
 
 	if exists {
 		fmt.Println(`InsertPerson(2): User already exists`)
-		return "", errors.New("User already exists")
+		return ``, errors.New(`user already exists`)
 	}
 
 	personData, err := GetPersonData(document, expirationDate)
 	if err != nil {
 		fmt.Printf(`InsertPerson(3): %s`, err.Error())
-		return "", errors.New(err.Error())
+		return ``, errors.New(err.Error())
 	}
 
 	if !personData.IsAlive {
 		fmt.Println(`InsertPerson(4): The document is not valid`)
-		return "", errors.New("User already exists")
+		return ``, errors.New(`user already exists`)
 	}
 
 	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, 50, 0, 50, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		fmt.Printf("InsertPerson(5) %s", err.Error())
-		return "", err
+		return ``, err
 	}
 
 	result, err := query.Exec(document, personData.Name, personData.Lastname)
-	fmt.Printf("%v", result)
+	if err != nil {
+		return ``, err
+	}
+	fmt.Printf(`%v`, result)
 
 	return personData.Name, nil
 }
@@ -116,12 +123,11 @@ func InsertUser(conn *sql.DB, email, phone, password, document, role string) err
 		return err
 	}
 
-	data, err := query.Exec(email, phone, password, document, role)
+	_, err = query.Exec(email, phone, password, document, role)
 	if err != nil {
 		fmt.Printf("InsertUser(2) %s", err.Error())
 		return err
 	}
 
-	data.LastInsertId()
 	return nil
 }

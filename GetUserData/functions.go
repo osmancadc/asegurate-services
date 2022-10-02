@@ -8,16 +8,16 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func ConnectDatabase() (connection *sql.DB) {
+var ConnectDatabase = func() (connection *sql.DB, err error) {
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
 	database := os.Getenv("DB_NAME")
 
-	connection, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
 	if err != nil {
 		fmt.Printf(`Error conectando DB %s`, err.Error())
-		panic(err.Error())
+		return nil, err
 	}
 
 	return

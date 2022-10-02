@@ -21,21 +21,25 @@ func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 
 	document := req.PathParameters["document"]
 
-	conn := ConnectDatabase()
+	conn, err := ConnectDatabase()
+	if err != nil {
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
 	defer conn.Close()
 
 	user, err := GetUserData(document, conn)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return response, err
 	}
 
 	userJson, err := json.Marshal(user)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return response, err
 	}
 
 	response.Body = string(userJson)

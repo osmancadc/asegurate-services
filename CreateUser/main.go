@@ -26,7 +26,11 @@ func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxy
 		return response, err
 	}
 
-	conn := ConnectDatabase()
+	conn, err := ConnectDatabase()
+	if err != nil {
+		response.StatusCode = http.StatusInternalServerError
+		return response, err
+	}
 	defer conn.Close()
 
 	name, err := InsertPerson(conn, reqBody.Document, reqBody.ExpirationDate)

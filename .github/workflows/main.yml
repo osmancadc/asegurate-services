@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [UploadScore,GetScore,CreateUser,AuthenticateUser,BetaRegistration,GetUserData,GetPersonName]
+        {dir: [UploadScore,GetScore,CreateUser,AuthenticateUser,BetaRegistration,GetUserData,GetPersonName]}
     steps:
       - uses: actions/checkout@v3
       - name: Initialize Go Environment
@@ -18,9 +18,8 @@ jobs:
         with:
           go-version: '1.18.1'
       - name: Running unit tests
-        # working-directory: ${{strategy.matrix.package}}
+        working-directory: ${{matrix.dir}}
         run: |
-          cd ${{strategy.matrix.package}}
           go mod init testing_module
           go mod tidy
           go test ./... -coverprofile coverage.out -covermode count
@@ -28,7 +27,7 @@ jobs:
       - uses: seriousben/go-patch-cover-action@v1
       - name: Quality Check
         env:
-            MINIMUM_COVERAGE: 5
+            MINIMUM_COVERAGE: 50
         run: |
             echo "Quality Check: checking test coverage is above minimum ..."
             echo "Threshold             : $MINIMUM_COVERAGE %"

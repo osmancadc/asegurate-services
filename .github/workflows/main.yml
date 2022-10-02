@@ -44,6 +44,7 @@ jobs:
       
   deploy-serverless:
     name: Deploy lambda function(s)
+    needs: unit-testing
     runs-on: ubuntu-latest
     steps: 
       - uses: actions/checkout@v3

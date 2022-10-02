@@ -127,7 +127,7 @@ func TestGetFromProvider(t *testing.T) {
 				dataValue: `123456`,
 			},
 			want:    true,
-			want1:   `OSMAN BELTRAN MURCIA`,
+			want1:   `some_full_name`,
 			wantErr: false,
 		},
 	}

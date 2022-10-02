@@ -9,9 +9,75 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-
 	_ "github.com/go-sql-driver/mysql"
 )
+
+func TestCalculateScore(t *testing.T) {
+	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
+	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	columns := []string{`score`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`50`))
+
+	type args struct {
+		conn         *sql.DB
+		document     string
+		documentType string
+		score        Score
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    Score
+		wantErr bool
+	}{
+		{
+			name: "Success Test ",
+			args: args{
+				conn:         db,
+				document:     `123456`,
+				documentType: `CC`,
+				score: Score{
+					Name:       `some_name`,
+					Lastname:   `some_lastname`,
+					Score:      50,
+					Reputation: 50,
+					Stars:      3,
+					Updated:    time.Now().Format(`2006-01-02 15:04:05`),
+				},
+			},
+			want: Score{
+				Name:       `some_name`,
+				Lastname:   `some_lastname`,
+				Score:      50,
+				Reputation: 50,
+				Stars:      2,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CalculateScore(tt.args.conn, tt.args.document, tt.args.documentType, tt.args.score)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CalculateScore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CalculateScore() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestValidatePhone(t *testing.T) {
 	db, mock, err := sqlmock.New()
@@ -240,8 +306,8 @@ func TestGetAssociatedName(t *testing.T) {
 				document:     `12345678`,
 				documentType: `CC`,
 			},
-			want:    `OSMAN`,
-			want1:   `BELTRAN MURCIA`,
+			want:    `some_name`,
+			want1:   `some_lastname`,
 			wantErr: false,
 		},
 	}

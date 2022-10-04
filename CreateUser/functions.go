@@ -34,7 +34,7 @@ func CheckExistingUser(conn *sql.DB, document string) (bool, error) {
 		return false, err
 	}
 
-	if results.Next() {
+	for results.Next() {
 		fmt.Printf("InsertPerson(1) el usuario ya existe")
 		return true, nil
 	}

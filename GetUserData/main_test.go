@@ -20,11 +20,11 @@ func TestHanderGetUserData(t *testing.T) {
 			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 		}
 
-		columns := []string{`name`, `email`, `phone`, `photo`}
+		columns := []string{`name`, `email`, `phone`, `photo`, `gender`}
 
 		mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 			WithArgs(`123456`).
-			WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_full_name`, `some@email.com`, `300123456`, `http://photo.png`))
+			WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_full_name`, `some@email.com`, `300123456`, `http://photo.png`, `male`))
 
 		return db, nil
 	}

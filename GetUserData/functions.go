@@ -28,7 +28,7 @@ func GetUserData(document string, conn *sql.DB) (User, error) {
 		Document: document,
 	}
 
-	results, err := conn.Query(`SELECT CONCAT(name,' ',lastname) name, email, phone, photo FROM person p 
+	results, err := conn.Query(`SELECT CONCAT(name,' ',lastname) name, email, phone, photo, gender FROM person p 
 								INNER JOIN user u ON p.document = u.document
 								WHERE p.document = ?`, document)
 	if err != nil {
@@ -37,7 +37,7 @@ func GetUserData(document string, conn *sql.DB) (User, error) {
 	}
 
 	if results.Next() {
-		err = results.Scan(&user.Name, &user.Email, &user.Phone, &user.Photo)
+		err = results.Scan(&user.Name, &user.Email, &user.Phone, &user.Photo, &user.Gender)
 		if err != nil {
 			fmt.Printf(`GetStoredScore(2): %s`, err.Error())
 			return user, err

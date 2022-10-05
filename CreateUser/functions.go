@@ -27,19 +27,41 @@ var ConnectDatabase = func() (connection *sql.DB, err error) {
 	return
 }
 
-func CheckExistingUser(conn *sql.DB, document string) (bool, error) {
-	results, err := conn.Query(`SELECT document FROM person p WHERE p.document = ?`, document)
+func CheckExistingUser(conn *sql.DB, document string) (exists bool, err error) {
+	results, err := conn.Query(`SELECT user_id FROM user WHERE document =  ?`, document)
 	if err != nil {
-		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
-		return false, err
+		fmt.Printf(`CheckExistingUser(1): %s`, err.Error())
+		return
 	}
 
-	for results.Next() {
-		fmt.Printf("InsertPerson(1) el usuario ya existe")
-		return true, nil
+	if results.Next() {
+		fmt.Printf("CheckExistingUser(2) el usuario ya existe")
+		exists = true
+		return
 	}
 
-	return false, nil
+	return
+}
+
+func CheckExistingPerson(conn *sql.DB, document string) (name string, exists bool, err error) {
+	results, err := conn.Query(`SELECT name FROM person p WHERE p.document = ?`, document)
+	if err != nil {
+		fmt.Printf(`CheckExistingPerson(1): %s`, err.Error())
+		return
+	}
+
+	if results.Next() {
+		fmt.Printf("CheckExistingPerson(2) la persona ya existe")
+		err = results.Scan(&name)
+		if err != nil {
+			fmt.Printf(`CheckExistingPerson(3): %s`, err.Error())
+			return
+		}
+		exists = true
+		return
+	}
+
+	return
 }
 
 func GetPersonData(document, expirationDate string) (PersonData, error) {
@@ -76,53 +98,57 @@ func GetPersonData(document, expirationDate string) (PersonData, error) {
 	return person.Data, nil
 }
 
-func InsertPerson(conn *sql.DB, document, expeditionDate string) (string, error) {
+func InsertPerson(conn *sql.DB, document, expeditionDate string) (name string, err error) {
 
-	exists, err := CheckExistingUser(conn, document)
+	name, exists, err := CheckExistingPerson(conn, document)
 	if err != nil {
 		fmt.Printf(`InsertPerson(1): %s`, err.Error())
-		return ``, err
+		return
 	}
 
 	if exists {
-		fmt.Println(`InsertPerson(2): User already exists`)
-		return ``, errors.New(`user already exists`)
+		fmt.Println(`InsertPerson(2): Person already exists`)
+		return
 	}
 
 	personData, err := GetPersonData(document, expeditionDate)
 	if err != nil {
 		fmt.Printf(`InsertPerson(3): %s`, err.Error())
-		return ``, errors.New(err.Error())
+		return
 	}
-
 	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, 50, 0, 50, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		fmt.Printf("InsertPerson(5) %s", err.Error())
-		return ``, err
+		return
 	}
 
-	result, err := query.Exec(document, personData.Name, personData.Lastname)
-	if err != nil {
-		return ``, err
-	}
-	fmt.Printf(`%v`, result)
+	query.Exec(document, personData.Name, personData.Lastname)
+	name = personData.Name
 
-	return personData.Name, nil
+	return
 }
 
-func InsertUser(conn *sql.DB, email, phone, password, document, role string) error {
+func InsertUser(conn *sql.DB, email, phone, password, document, role string) (err error) {
+
+	exists, err := CheckExistingUser(conn, document)
+	if err != nil {
+		fmt.Printf(`InsertUser(1): %s`, err.Error())
+		return
+	}
+
+	if exists {
+		fmt.Println(`InsertUser(2): User already exists`)
+		err = errors.New(`user already exists`)
+		return
+	}
 
 	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
-		fmt.Printf("InsertUser(1) %s", err.Error())
-		return err
+		fmt.Printf("InsertUser(3) %s", err.Error())
+		return
 	}
 
-	_, err = query.Exec(email, phone, password, document, role)
-	if err != nil {
-		fmt.Printf("InsertUser(2) %s", err.Error())
-		return err
-	}
+	query.Exec(email, phone, password, document, role)
 
-	return nil
+	return
 }

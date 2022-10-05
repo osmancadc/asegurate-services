@@ -161,7 +161,7 @@ func TestInsertPerson(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{`document`}
+	columns := []string{`name`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
@@ -176,7 +176,7 @@ func TestInsertPerson(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`))
 
 	type args struct {
 		conn           *sql.DB
@@ -200,14 +200,14 @@ func TestInsertPerson(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: `Error Test User Already Exists`,
+			name: `Success Test User Already Exists`,
 			args: args{
 				conn:           db,
 				document:       `123456`,
 				expirationDate: `23/08/2022`,
 			},
-			want:    ``,
-			wantErr: true,
+			want:    `some_name`,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -230,6 +230,12 @@ func TestInsertUser(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer db.Close()
+
+	columns := []string{`name`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns))
 
 	mock.ExpectPrepare(`INSERT INTO user \((.+)\)`)
 	mock.ExpectExec(`INSERT INTO user \((.+)\)`).

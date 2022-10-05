@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func TestHanderCreateUser(t *testing.T) {
+func TestHandlerCreateUser(t *testing.T) {
 	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
 	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
 
@@ -32,6 +32,10 @@ func TestHanderCreateUser(t *testing.T) {
 		mock.ExpectExec(`INSERT INTO person \((.+)\)`).
 			WithArgs(`123456`, `some_name`, `some_lastname`).
 			WillReturnResult(sqlmock.NewResult(1, 1))
+
+		mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+			WithArgs(`123456`).
+			WillReturnRows(sqlmock.NewRows(columns))
 
 		mock.ExpectPrepare(`INSERT INTO user \((.+)\)`)
 		mock.ExpectExec(`INSERT INTO user \((.+)\)`).
@@ -72,7 +76,7 @@ func TestHanderCreateUser(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := HanderCreateUser(tt.args.req)
+			got, err := HandlerCreateUser(tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HanderCreateUser() error = %v, wantErr %v", err, tt.wantErr)
 				return

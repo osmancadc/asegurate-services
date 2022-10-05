@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HandlerCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
@@ -53,5 +53,31 @@ func HanderCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxy
 }
 
 func main() {
-	lambda.Start(HanderCreateUser)
+	lambda.Start(HandlerCreateUser)
 }
+
+// package main
+
+// import (
+// 	"fmt"
+// 	"os"
+// )
+
+// func main() {
+
+// 	os.Setenv("DB_USER", "administrator")
+// 	os.Setenv("DB_PASSWORD", "35Yw!8uO5v5g")
+// 	os.Setenv("DB_HOST", "dev-asegurate.cluster-cnaioe8hvyno.us-east-1.rds.amazonaws.com")
+// 	os.Setenv("DB_NAME", "dev_asegurate")
+// 	conn, err := ConnectDatabase()
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 	}
+// 	defer conn.Close()
+// 	name, exists, err := CheckExistingPerson(conn, `1022372535`)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 	}
+
+// 	fmt.Printf("%s -> %t \n", name, exists)
+// }

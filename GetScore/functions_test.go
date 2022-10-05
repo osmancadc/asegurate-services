@@ -159,11 +159,11 @@ func TestGetStoredScore(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{`name`, `lastname`, `score`, `reputation`, `stars`, `last_update`}
+	columns := []string{`name`, `lastname`, `gender`, `score`, `reputation`, `stars`, `last_update`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM person (.+)`).
 		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_lastname`, `50`, `50`, `3`, "25-06-2022"))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_lastname`, `male`, `50`, `50`, `3`, "25-06-2022"))
 
 	mock.ExpectQuery(`SELECT (.+) FROM person (.+)`).
 		WithArgs(`654321`).
@@ -189,6 +189,7 @@ func TestGetStoredScore(t *testing.T) {
 			want: Score{
 				Name:       `some_name`,
 				Lastname:   `some_lastname`,
+				Gender:     `male`,
 				Score:      50,
 				Reputation: 50,
 				Stars:      3,
@@ -345,6 +346,7 @@ func TestGetResponseBody(t *testing.T) {
 				score: Score{
 					Name:       "some_name",
 					Lastname:   "Beltran",
+					Gender:     `male`,
 					Score:      100,
 					Reputation: 100,
 					Stars:      5,
@@ -355,12 +357,13 @@ func TestGetResponseBody(t *testing.T) {
 			want: fmt.Sprintf(`{
 		"name": "%s",
 		"document": "%s",
+		"gender": "%s",
 		"stars": %d,
 		"reputation": %d,
 		"score": %d,
 		"certified": %t,
 		"photo": "%s"
-	}`, "some_name Beltran", "123456", 5, 100, 100, true, "https://photo.jpg"),
+	}`, "some_name Beltran", "123456", `male`, 5, 100, 100, true, "https://photo.jpg"),
 		},
 	}
 	for _, tt := range tests {
@@ -381,7 +384,7 @@ func TestSaveNewPerson(t *testing.T) {
 
 	mock.ExpectPrepare(`INSERT INTO person \((.+)\)`)
 	mock.ExpectExec(`INSERT INTO person (.+)`).
-		WithArgs(`123456`, `some_name`, `some_lastname`, 50, 3, 50).
+		WithArgs(`123456`, `some_name`, `some_lastname`, ``, 50, 3, 50).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	type args struct {
@@ -401,6 +404,7 @@ func TestSaveNewPerson(t *testing.T) {
 				score: Score{
 					Name:       `some_name`,
 					Lastname:   `some_lastname`,
+					Gender:     ``,
 					Score:      50,
 					Reputation: 50,
 					Stars:      3,

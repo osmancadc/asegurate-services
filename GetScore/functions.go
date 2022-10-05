@@ -196,26 +196,25 @@ func ValidatePhone(conn *sql.DB, phone string) (Score, string, error) {
 	return score, "", errors.New("número de celular no encontrado")
 }
 
-func GetStoredScore(conn *sql.DB, document string) (Score, bool, error) {
-	score := Score{}
-
-	results, err := conn.Query(`SELECT name, lastname, score, reputation, stars, last_update FROM person p  where p.document = ?`, document)
+func GetStoredScore(conn *sql.DB, document string) (score Score, exists bool, err error) {
+	results, err := conn.Query(`SELECT name, lastname, gender, score, reputation, stars, last_update FROM person p  where p.document = ?`, document)
 	if err != nil {
 		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
-		return score, false, err
+		return
 	}
 
 	if results.Next() {
-		err = results.Scan(&score.Name, &score.Lastname, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
+		err = results.Scan(&score.Name, &score.Lastname, &score.Gender, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
 		if err != nil {
 			fmt.Printf(`GetStoredScore(2): %s`, err.Error())
-			return score, false, err
+			return
 		}
 
-		return score, true, nil
+		exists = true
+		return
 	}
 
-	return score, false, nil
+	return
 }
 
 func DaysSinceLastUpdate(lastUpdate string) (int, error) {
@@ -266,13 +265,13 @@ func GetAssociatedName(document, documentType string) (string, string, error) {
 
 func SaveNewPerson(conn *sql.DB, score Score, document string) error {
 
-	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, gender, score, stars, reputation, last_update) VALUES(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		fmt.Printf(`SaveNewPerson(1) %s`, err.Error())
 		return err
 	}
 
-	data, err := query.Exec(document, score.Name, score.Lastname, score.Score, score.Stars, score.Reputation)
+	data, err := query.Exec(document, score.Name, score.Lastname, ``, score.Score, score.Stars, score.Reputation)
 	if err != nil {
 		fmt.Printf(`SaveNewPerson(2) %s`, err.Error())
 		return err
@@ -355,10 +354,11 @@ func GetResponseBody(score Score, document, photo string) string {
 	return fmt.Sprintf(`{
 		"name": "%s",
 		"document": "%s",
+		"gender": "%s",
 		"stars": %d,
 		"reputation": %d,
 		"score": %d,
 		"certified": %t,
 		"photo": "%s"
-	}`, fullname, document, score.Stars, score.Reputation, score.Score, certified, photo)
+	}`, fullname, document, score.Gender, score.Stars, score.Reputation, score.Score, certified, photo)
 }

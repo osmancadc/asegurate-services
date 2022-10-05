@@ -8,6 +8,7 @@ type RequestBody struct {
 type Score struct {
 	Name       string
 	Lastname   string
+	Gender     string
 	Score      int
 	Reputation int
 	Stars      int

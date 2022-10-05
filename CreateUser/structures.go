@@ -2,7 +2,7 @@ package main
 
 type RequestBody struct {
 	Document       string `json:"document"`
-	ExpirationDate string `json:"expiration_date"`
+	ExpeditionDate string `json:"expedition_date"`
 	Email          string `json:"email"`
 	Phone          string `json:"phone"`
 	Role           string `json:"role"`

@@ -144,14 +144,15 @@ func CalculateScore(conn *sql.DB, document, documentType string, data Score, exi
 		return
 	}
 
-	if existing {
-		if elapsed > 7 {
-			fmt.Println("The score was updated over a week ago")
-			reputation, err = CalculateReputation(document, documentType)
-			if err != nil {
-				return score, err
-			}
+	if elapsed > 7 || !existing {
+		fmt.Println("Calculating reputation")
+		reputation, err = CalculateReputation(document, documentType)
+		if err != nil {
+			return score, err
 		}
+	}
+
+	if existing {
 
 		score = Score{
 			Name:       data.Name,

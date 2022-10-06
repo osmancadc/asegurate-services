@@ -33,11 +33,13 @@ func TestCalculateScore(t *testing.T) {
 		document     string
 		documentType string
 		score        Score
+		found        bool
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    Score
+		name string
+		args args
+		want Score
+
 		wantErr bool
 	}{
 		{
@@ -46,6 +48,7 @@ func TestCalculateScore(t *testing.T) {
 				conn:         db,
 				document:     `123456`,
 				documentType: `CC`,
+				found:        true,
 				score: Score{
 					Name:       `some_name`,
 					Lastname:   `some_lastname`,
@@ -67,7 +70,7 @@ func TestCalculateScore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CalculateScore(tt.args.conn, tt.args.document, tt.args.documentType, tt.args.score)
+			got, err := CalculateScore(tt.args.conn, tt.args.document, tt.args.documentType, tt.args.score, tt.args.found)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CalculateScore() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -86,11 +89,11 @@ func TestValidatePhone(t *testing.T) {
 	}
 	defer db.Close()
 
-	columns := []string{`document`, `name`, `lastname`, `score`, `reputation`, `stars`, `last_update`}
+	columns := []string{`document`, `name`, `lastname`, `gender`, `score`, `reputation`, `stars`, `last_update`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`3001234567`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`, `some_name`, `some_lastname`, `50`, `50`, `3`, "25-06-2022"))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`, `some_name`, `some_lastname`, `male`, `50`, `50`, `3`, "25-06-2022"))
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`3007654321`).
@@ -116,6 +119,7 @@ func TestValidatePhone(t *testing.T) {
 			want: Score{
 				Name:       "some_name",
 				Lastname:   "some_lastname",
+				Gender:     `male`,
 				Score:      50,
 				Reputation: 50,
 				Stars:      3,

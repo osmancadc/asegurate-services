@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-//TODO: Update Getdatabase mock function to increase percentage of coverage
+// TODO: Update Getdatabase mock function to increase percentage of coverage
 func TestHanderGetScore(t *testing.T) {
 
 	type args struct {
@@ -29,7 +29,7 @@ func TestHanderGetScore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := HanderGetScore(tt.args.req)
+			got, err := HandlerGetScore(tt.args.req)
 			t.Logf("Got: %v", got)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HanderGetScore() error = %v, wantErr %v", err, tt.wantErr)

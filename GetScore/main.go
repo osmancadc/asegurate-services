@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HandlerGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
 	response := events.APIGatewayProxyResponse{
@@ -40,5 +40,5 @@ func HanderGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRe
 }
 
 func main() {
-	lambda.Start(HanderGetScore)
+	lambda.Start(HandlerGetScore)
 }

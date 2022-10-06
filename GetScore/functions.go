@@ -26,6 +26,7 @@ func ConnectDatabase() (connection *sql.DB, err error) {
 	}
 
 	return
+
 }
 
 func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewayProxyResponse, error) {
@@ -48,7 +49,7 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 	if !isStored {
 		fmt.Println("No previous score was found")
 
-		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type, score)
+		score, err := CalculateScore(conn, reqBody.Value, reqBody.Type, score, isStored)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
@@ -76,7 +77,7 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 
 	fmt.Println("Found previous score")
 
-	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score)
+	score, err = CalculateScore(conn, reqBody.Value, reqBody.Type, score, isStored)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
@@ -111,7 +112,7 @@ func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayPr
 		return response, err
 	}
 
-	score, err = CalculateScore(conn, document, "CC", score)
+	score, err = CalculateScore(conn, document, "CC", score, true)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
@@ -130,74 +131,82 @@ func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayPr
 	return response, nil
 }
 
-func CalculateScore(conn *sql.DB, document, documentType string, score Score) (Score, error) {
+func CalculateScore(conn *sql.DB, document, documentType string, data Score, existing bool) (score Score, err error) {
 
-	elapsed, err := DaysSinceLastUpdate(score.Updated)
-	if err != nil {
-		return score, err
-	}
-
-	reputation := 50
-	if elapsed > 7 {
-		fmt.Println("The score was updated over a week ago")
-		reputation, err = CalculateReputation(document, documentType)
-		if err != nil {
-			return score, err
-		}
-	}
-
-	name, lastname, err := GetAssociatedName(document, documentType)
-	if err != nil {
-		fmt.Printf(`CalculateScore(1): %s`, err.Error())
-		return score, err
-	}
-
+	reputation := data.Reputation
 	scoreAverage, err := CalculateInternalScore(conn, document)
 	if err != nil {
 		return score, err
 	}
 
-	stars := int((scoreAverage + reputation) / 40)
+	elapsed, err := DaysSinceLastUpdate(score.Updated)
+	if err != nil {
+		return
+	}
 
-	score = Score{
-		Name:       name,
-		Lastname:   lastname,
-		Score:      scoreAverage,
-		Reputation: reputation,
-		Stars:      stars,
+	if existing {
+		if elapsed > 7 {
+			fmt.Println("The score was updated over a week ago")
+			reputation, err = CalculateReputation(document, documentType)
+			if err != nil {
+				return score, err
+			}
+		}
+
+		score = Score{
+			Name:       data.Name,
+			Lastname:   data.Lastname,
+			Gender:     data.Gender,
+			Score:      scoreAverage,
+			Reputation: reputation,
+			Stars:      int((scoreAverage + reputation) / 40),
+		}
+
+		return
+	} else {
+		name, lastname, err := GetAssociatedName(document, documentType)
+		if err != nil {
+			fmt.Printf(`CalculateScore(1): %s`, err.Error())
+			return score, err
+		}
+
+		score = Score{
+			Name:       name,
+			Lastname:   lastname,
+			Gender:     `male`,
+			Score:      scoreAverage,
+			Reputation: reputation,
+			Stars:      int((scoreAverage + reputation) / 40),
+		}
 	}
 
 	return score, nil
 }
 
-func ValidatePhone(conn *sql.DB, phone string) (Score, string, error) {
-	score := Score{}
+func ValidatePhone(conn *sql.DB, phone string) (score Score, document string, err error) {
 
-	results, err := conn.Query(`SELECT p.document, name, lastname, score, reputation , stars, last_update FROM user u 
+	results, err := conn.Query(`SELECT p.document, name, lastname, gender, score, reputation , stars, last_update FROM user u 
 								INNER JOIN person p ON u.document =p.document 
 								WHERE u.phone = ?`, phone)
 	if err != nil {
 		fmt.Printf(`ValidatePhone(1): %s`, err.Error())
-		return score, "", err
+		return
 	}
 
 	if results.Next() {
-		document := ""
-		err = results.Scan(&document, &score.Name, &score.Lastname, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
+		err = results.Scan(&document, &score.Name, &score.Lastname, &score.Gender, &score.Score, &score.Reputation, &score.Stars, &score.Updated)
 		if err != nil {
 			fmt.Printf(`ValidatePhone(2): %s`, err.Error())
-
-			return score, "", err
+			return
 		}
-
-		return score, document, nil
+		return
 	}
 
 	return score, "", errors.New("número de celular no encontrado")
 }
 
 func GetStoredScore(conn *sql.DB, document string) (score Score, exists bool, err error) {
-	results, err := conn.Query(`SELECT name, lastname, gender, score, reputation, stars, last_update FROM person p  where p.document = ?`, document)
+	results, err := conn.Query(`SELECT name, lastname, gender, score, reputation, stars, last_update FROM person p where p.document = ?`, document)
 	if err != nil {
 		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
 		return

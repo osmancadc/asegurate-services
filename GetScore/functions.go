@@ -109,21 +109,21 @@ func CalculateScorePhone(reqBody RequestBody, conn *sql.DB) (events.APIGatewayPr
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	score, err = CalculateScore(conn, document, "CC", score, true)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	response.Body = GetResponseBody(score, reqBody.Value, photo)

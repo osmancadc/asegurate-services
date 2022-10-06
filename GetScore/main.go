@@ -22,13 +22,13 @@ func HandlerGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyR
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
-		return response, err
+		return response, nil
 	}
 
 	conn, err := ConnectDatabase()
 	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 	defer conn.Close()
 

@@ -23,13 +23,13 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 	err := json.Unmarshal([]byte(req.Body), &data)
 	if err != nil {
 		response.StatusCode = http.StatusBadRequest
-		return response, err
+		return response, nil
 	}
 
 	conn, err := ConnectDatabase()
 	if err != nil {
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 	defer conn.Close()
 
@@ -37,7 +37,7 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 	if err != nil {
 		response.Body = fmt.Sprintf(`{"message":"%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	if !found {
@@ -50,7 +50,7 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 	if err != nil {
 		response.Body = fmt.Sprintf(`{"message":"%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	response.Body = fmt.Sprintf(`{"message":"User authenticated","token":"%s"}`, token)

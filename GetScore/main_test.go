@@ -24,7 +24,7 @@ func TestHanderGetScore(t *testing.T) {
 					Body: `{ "value": "1018500888", "type": "CC" } `,
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

@@ -43,7 +43,7 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	if !isStored {
@@ -53,21 +53,21 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
-			return response, err
+			return response, nil
 		}
 
 		err = SaveNewPerson(conn, score, reqBody.Value)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
-			return response, err
+			return response, nil
 		}
 
 		photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
 		if err != nil {
 			response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 			response.StatusCode = http.StatusInternalServerError
-			return response, err
+			return response, nil
 		}
 
 		response.Body = GetResponseBody(score, reqBody.Value, photo)
@@ -81,14 +81,14 @@ func CalculateScoreDocument(reqBody RequestBody, conn *sql.DB) (events.APIGatewa
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	photo, err := GetPersonPhoto(conn, reqBody.Value, reqBody.Type)
 	if err != nil {
 		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
 		response.StatusCode = http.StatusInternalServerError
-		return response, err
+		return response, nil
 	}
 
 	response.Body = GetResponseBody(score, reqBody.Value, photo)

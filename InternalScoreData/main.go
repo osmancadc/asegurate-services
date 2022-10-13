@@ -21,14 +21,12 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
-		response.StatusCode = http.StatusBadRequest
-		return response, nil
+		return ErrorMessage(err)
 	}
 
 	conn, err := ConnectDatabase()
 	if err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 	defer conn.Close()
 

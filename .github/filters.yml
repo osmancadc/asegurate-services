@@ -12,3 +12,5 @@ GetPersonName:
   - 'GetPersonName/**'
 InternalScoreData:
   - 'InternalScoreData/**'
+ExternalScoreData:
+  - 'ExternalScoreData/**'

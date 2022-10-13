@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -19,7 +18,6 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 			"Access-Control-Allow-Methods": "POST",
 		},
 	}
-	fmt.Print("something1")
 
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
@@ -27,7 +25,6 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 		return response, nil
 	}
 
-	fmt.Print("something2")
 	conn, err := ConnectDatabase()
 	if err != nil {
 		response.StatusCode = http.StatusInternalServerError

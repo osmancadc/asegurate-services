@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -196,7 +195,7 @@ func TestGetAuthorId(t *testing.T) {
 	}
 }
 
-func TestInsertInternalScore(t *testing.T) {
+func TestUploadInternalScore(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -263,14 +262,14 @@ func TestInsertInternalScore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := InsertInternalScore(tt.args.conn, tt.args.body)
+			gotResponse, err := UploadInternalScore(tt.args.conn, tt.args.body)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("InsertInternalScore() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UploadInternalScore() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
 				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
+				t.Errorf("UploadInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}
@@ -413,8 +412,9 @@ func TestUpdateInternalScore(t *testing.T) {
 				t.Errorf("UpdateInternalScore() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("UpdateInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}

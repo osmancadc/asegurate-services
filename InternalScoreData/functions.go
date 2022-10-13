@@ -27,6 +27,14 @@ var ConnectDatabase = func() (connection *sql.DB, err error) {
 }
 
 func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+
 	response.StatusCode = http.StatusInternalServerError
 	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
 
@@ -34,6 +42,13 @@ func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse,
 }
 
 func SuccessMessage(message string) (response events.APIGatewayProxyResponse, err error) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
 	response.StatusCode = http.StatusOK
 	response.Body = fmt.Sprintf(`{"message":"%s"}`, message)
 
@@ -62,7 +77,7 @@ func GetAuthorId(conn *sql.DB, document string) (int, error) {
 	return -1, errors.New("no user found")
 }
 
-func InsertInternalScore(conn *sql.DB, body InsertBody) (response events.APIGatewayProxyResponse, err error) {
+func UploadInternalScore(conn *sql.DB, body InsertBody) (response events.APIGatewayProxyResponse, err error) {
 
 	authorId, err := GetAuthorId(conn, body.Author)
 	if err != nil {
@@ -85,6 +100,14 @@ func InsertInternalScore(conn *sql.DB, body InsertBody) (response events.APIGate
 }
 
 func GetInternalScoreSummary(conn *sql.DB, body GetBody) (response events.APIGatewayProxyResponse, err error) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+
 	results, err := conn.Query(`SELECT avg(s.score),
 							sum(case when s.score > 50 then 1 else 0 end) positiveScores,
 							sum(case when s.score < 50 then 1 else 0 end) negativeScores,

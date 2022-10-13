@@ -32,7 +32,7 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 
 	switch reqBody.Action {
 	case `insert`:
-		return InsertInternalScore(conn, reqBody.InsertBody)
+		return UploadInternalScore(conn, reqBody.InsertBody)
 	case `update`:
 		return UpdateInternalScore(conn, reqBody.UpdateBody)
 	case `get`:

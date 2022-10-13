@@ -7,8 +7,8 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-//TODO: Update Getdatabase mock function to increase percentage of coverage
-func TestHanderGetPersonName(t *testing.T) {
+// TODO: Update Getdatabase mock function to increase percentage of coverage
+func TestHandlerGetPersonName(t *testing.T) {
 	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
 	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
 	type args struct {
@@ -27,9 +27,9 @@ func TestHanderGetPersonName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := HanderGetPersonName(tt.args.req)
+			_, err := HandlerGetPersonName(tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("HanderGetPersonName() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HandlerGetPersonName() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 

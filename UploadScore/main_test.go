@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func TestHanderUploadScore(t *testing.T) {
+func TestHandlerUploadScore(t *testing.T) {
 	OldConnectDatabase := ConnectDatabase
 	defer func() { ConnectDatabase = OldConnectDatabase }()
 
@@ -94,9 +94,9 @@ func TestHanderUploadScore(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := HanderUploadScore(tt.args.req)
+			_, err := HandlerUploadScore(tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("HanderUploadScore() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HandlerUploadScore() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 

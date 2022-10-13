@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HandlerGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
@@ -48,5 +48,5 @@ func HanderGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 }
 
 func main() {
-	lambda.Start(HanderGetUserData)
+	lambda.Start(HandlerGetUserData)
 }

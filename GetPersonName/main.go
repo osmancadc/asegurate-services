@@ -8,13 +8,13 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HanderGetPersonName(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HandlerGetPersonName(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
 	response := events.APIGatewayProxyResponse{
 		Headers: map[string]string{
 			"Content-Type":                 "application/json",
 			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
+			"Access-Control-Allow-Methods": "GET",
 		},
 	}
 
@@ -63,5 +63,5 @@ func HanderGetPersonName(req events.APIGatewayProxyRequest) (events.APIGatewayPr
 }
 
 func main() {
-	lambda.Start(HanderGetPersonName)
+	lambda.Start(HandlerGetPersonName)
 }

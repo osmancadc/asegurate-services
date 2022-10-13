@@ -78,11 +78,11 @@ func TestHandlerCreateUser(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := HandlerCreateUser(tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("HanderCreateUser() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HandlerCreateUser() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got.StatusCode != tt.want.StatusCode {
-				t.Errorf("HanderCreateUser() = %v, want %v", got, tt.want)
+				t.Errorf("HandlerCreateUser() = %v, want %v", got, tt.want)
 			}
 		})
 	}

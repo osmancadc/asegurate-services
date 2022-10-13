@@ -10,3 +10,5 @@ GetUserData:
   - 'GetUserData/**'
 GetPersonName:
   - 'GetPersonName/**'
+InternalScoreData:
+  - 'InternalScoreData/**'

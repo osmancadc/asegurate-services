@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func TestHanderGetUserData(t *testing.T) {
+func TestHandlerGetUserData(t *testing.T) {
 
 	OldConnectDatabase := ConnectDatabase
 	defer func() { ConnectDatabase = OldConnectDatabase }()
@@ -42,7 +42,7 @@ func TestHanderGetUserData(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: `Success Test HanderGetUserData`,
+			name: `Success Test HandlerGetUserData`,
 			args: args{
 				req: events.APIGatewayProxyRequest{
 					PathParameters: pathParameter,
@@ -56,13 +56,13 @@ func TestHanderGetUserData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := HanderGetUserData(tt.args.req)
+			got, err := HandlerGetUserData(tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("HanderGetUserData() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HandlerGetUserData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got.StatusCode != tt.want.StatusCode {
-				t.Errorf("HanderGetUserData() = %v, want %v", got, tt.want)
+				t.Errorf("HandlerGetUserData() = %v, want %v", got, tt.want)
 			}
 		})
 	}

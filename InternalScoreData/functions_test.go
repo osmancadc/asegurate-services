@@ -219,7 +219,7 @@ func TestUploadInternalScore(t *testing.T) {
 
 	type args struct {
 		conn *sql.DB
-		body InsertBody
+		body InsertScoreBody
 	}
 	tests := []struct {
 		name         string
@@ -231,7 +231,7 @@ func TestUploadInternalScore(t *testing.T) {
 			name: "Tests success",
 			args: args{
 				conn: db,
-				body: InsertBody{
+				body: InsertScoreBody{
 					Author:    `123456`,
 					Objective: `678910`,
 					Score:     20,
@@ -247,7 +247,7 @@ func TestUploadInternalScore(t *testing.T) {
 			name: "Tests error author not found",
 			args: args{
 				conn: db,
-				body: InsertBody{
+				body: InsertScoreBody{
 					Author:    `678901`,
 					Objective: `678910`,
 					Score:     20,
@@ -299,7 +299,7 @@ func TestGetInternalScoreSummary(t *testing.T) {
 
 	type args struct {
 		conn *sql.DB
-		body GetBody
+		body GetScoreBody
 	}
 	tests := []struct {
 		name         string
@@ -311,7 +311,7 @@ func TestGetInternalScoreSummary(t *testing.T) {
 			name: "Test succesfull",
 			args: args{
 				conn: db,
-				body: GetBody{
+				body: GetScoreBody{
 					Document: `123456`,
 				},
 			},
@@ -325,7 +325,7 @@ func TestGetInternalScoreSummary(t *testing.T) {
 			name: "Test error database result",
 			args: args{
 				conn: db,
-				body: GetBody{
+				body: GetScoreBody{
 					Document: `654321`,
 				},
 			},
@@ -339,7 +339,7 @@ func TestGetInternalScoreSummary(t *testing.T) {
 			name: "Test error database number of columns",
 			args: args{
 				conn: db,
-				body: GetBody{
+				body: GetScoreBody{
 					Document: `678901`,
 				},
 			},
@@ -380,7 +380,7 @@ func TestUpdateInternalScore(t *testing.T) {
 
 	type args struct {
 		conn *sql.DB
-		body UpdateBody
+		body UpdateScoreBody
 	}
 	tests := []struct {
 		name         string
@@ -392,7 +392,7 @@ func TestUpdateInternalScore(t *testing.T) {
 			name: "Test successfull",
 			args: args{
 				conn: db,
-				body: UpdateBody{
+				body: UpdateScoreBody{
 					Document:   `123456`,
 					Score:      56,
 					Reputation: 20,
@@ -410,6 +410,95 @@ func TestUpdateInternalScore(t *testing.T) {
 			gotResponse, err := UpdateInternalScore(tt.args.conn, tt.args.body)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateInternalScore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestGetUserByPhone(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	columns := []string{`col1`}
+	columns_error := []string{`col1`, `col2`}
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`3123456789`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`3987654321`).
+		WillReturnError(errors.New(`some error`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456789`).
+		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`123456`, `something`))
+
+	type args struct {
+		conn *sql.DB
+		body GetByPhoneBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success test`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `3123456789`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"document":"123456"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error test - database error`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `3987654321`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some error"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error test - wrong database return`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `123456789`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"sql: expected 2 destination arguments in Scan, not 1"}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := GetUserByPhone(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetUserByPhone() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||

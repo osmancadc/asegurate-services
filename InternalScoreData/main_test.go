@@ -47,7 +47,7 @@ func TestHandlerInternalScoreData(t *testing.T) {
 			name: "Insert Test",
 			args: args{
 				req: events.APIGatewayProxyRequest{
-					Body: `{ "action": "insert", "insert_data": { "author": "123456", "objective": "654321" ,"score": 99,"comments": "some comment" } }`,
+					Body: `{ "action": "insertScore", "insert_score_body": { "author": "123456", "objective": "654321" ,"score": 99,"comments": "some comment" } }`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{

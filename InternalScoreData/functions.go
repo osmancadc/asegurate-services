@@ -26,88 +26,7 @@ var ConnectDatabase = func() (connection *sql.DB, err error) {
 	return
 }
 
-func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
-	response = events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-
-	response.StatusCode = http.StatusInternalServerError
-	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
-
-	return
-}
-
-func SuccessMessage(message string) (response events.APIGatewayProxyResponse, err error) {
-	response = events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{"message":"%s"}`, message)
-
-	return
-}
-
-func GetAuthorId(conn *sql.DB, document string) (int, error) {
-
-	id := 0
-
-	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
-	if err != nil {
-		fmt.Printf(`GetAuthorId(1): %s`, err.Error())
-		return -1, err
-	}
-
-	if results.Next() {
-		err = results.Scan(&id)
-		if err != nil {
-			fmt.Printf(`GetAuthorId(2): %s`, err.Error())
-			return -1, err
-		}
-		return id, nil
-	}
-
-	return -1, errors.New("no user found")
-}
-
-func UploadInternalScore(conn *sql.DB, body InsertBody) (response events.APIGatewayProxyResponse, err error) {
-
-	authorId, err := GetAuthorId(conn, body.Author)
-	if err != nil {
-		return ErrorMessage(err)
-	}
-
-	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, comments) VALUES(?, ?, ?, ?)`)
-	if err != nil {
-		fmt.Printf("InsertInternalScore(1) %s", err.Error())
-		return ErrorMessage(err)
-	}
-
-	_, err = query.Exec(authorId, body.Objective, body.Score, body.Comments)
-	if err != nil {
-		fmt.Printf("InsertInternalScore(2) %s", err.Error())
-		return ErrorMessage(err)
-	}
-
-	return SuccessMessage(`Score uploaded successfully`)
-}
-
-func GetInternalScoreSummary(conn *sql.DB, body GetBody) (response events.APIGatewayProxyResponse, err error) {
-	response = events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-
+func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.APIGatewayProxyResponse, err error) {
 	results, err := conn.Query(`SELECT avg(s.score),
 							sum(case when s.score > 50 then 1 else 0 end) positiveScores,
 							sum(case when s.score < 50 then 1 else 0 end) negativeScores,
@@ -133,13 +52,14 @@ func GetInternalScoreSummary(conn *sql.DB, body GetBody) (response events.APIGat
 		}
 	}
 
+	response = SetResponseHeaders()
 	response.StatusCode = http.StatusOK
 	response.Body = fmt.Sprintf(`{ "score": %F, "positive_scores": %d, "negative_scores":%d, "average_60_days":%F }`,
 		internalScore.Score, internalScore.PositiveScores, internalScore.NegativeScores, internalScore.Average60Days)
 	return response, nil
 }
 
-func UpdateInternalScore(conn *sql.DB, body UpdateBody) (response events.APIGatewayProxyResponse, err error) {
+func UpdateInternalScore(conn *sql.DB, body UpdateScoreBody) (response events.APIGatewayProxyResponse, err error) {
 	query, err := conn.Prepare(`UPDATE person
 								SET score=?, reputation=?, last_update=CURRENT_TIMESTAMP
 								WHERE document= ?`)
@@ -155,4 +75,100 @@ func UpdateInternalScore(conn *sql.DB, body UpdateBody) (response events.APIGate
 	}
 
 	return SuccessMessage(`User score updated successfully`)
+}
+
+func UploadInternalScore(conn *sql.DB, body InsertScoreBody) (response events.APIGatewayProxyResponse, err error) {
+
+	authorId, err := GetAuthorId(conn, body.Author)
+	if err != nil {
+		return ErrorMessage(err)
+	}
+
+	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, comments) VALUES(?, ?, ?, ?)`)
+	if err != nil {
+		fmt.Printf("InsertInternalScore(1) %s", err.Error())
+		return ErrorMessage(err)
+	}
+
+	_, err = query.Exec(authorId, body.Objective, body.Score, body.Comments)
+	if err != nil {
+		fmt.Printf("InsertInternalScore(2) %s", err.Error())
+		return ErrorMessage(err)
+	}
+
+	return SuccessMessage(`Score uploaded successfully`)
+}
+
+func GetUserByPhone(conn *sql.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
+	objective := ""
+
+	results, err := conn.Query(`SELECT document FROM user u WHERE u.phone = ?`, body.Phone)
+	if err != nil {
+		fmt.Printf(`UploadScorePhone(1): %s`, err.Error())
+		return ErrorMessage(err)
+	}
+
+	if results.Next() {
+		err = results.Scan(&objective)
+		if err != nil {
+			fmt.Printf(`UploadScorePhone(2): %s`, err.Error())
+			return ErrorMessage(err)
+		}
+	}
+
+	response.StatusCode = http.StatusOK
+	response.Body = fmt.Sprintf(`{"document":"%s"}`, objective)
+	return response, nil
+}
+
+// Asset functions
+
+func GetAuthorId(conn *sql.DB, document string) (int, error) {
+
+	id := 0
+
+	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
+	if err != nil {
+		fmt.Printf(`GetAuthorId(1): %s`, err.Error())
+		return -1, err
+	}
+
+	if results.Next() {
+		err = results.Scan(&id)
+		if err != nil {
+			fmt.Printf(`GetAuthorId(2): %s`, err.Error())
+			return -1, err
+		}
+		return id, nil
+	}
+
+	return -1, errors.New("no user found")
+}
+
+func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = http.StatusInternalServerError
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
+
+	return
+}
+
+func SuccessMessage(message string) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, message)
+
+	return
+}
+
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+	return
 }

@@ -31,12 +31,14 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 	defer conn.Close()
 
 	switch reqBody.Action {
-	case `insert`:
-		return UploadInternalScore(conn, reqBody.InsertBody)
-	case `update`:
-		return UpdateInternalScore(conn, reqBody.UpdateBody)
-	case `get`:
-		return GetInternalScoreSummary(conn, reqBody.GetBody)
+	case `insertScore`:
+		return UploadInternalScore(conn, reqBody.InsertScoreBody)
+	case `updateScore`:
+		return UpdateInternalScore(conn, reqBody.UpdateScoreBody)
+	case `getScore`:
+		return GetInternalScoreSummary(conn, reqBody.GetScoreBody)
+	case `getByPhone`:
+		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
 	}
 
 	response.StatusCode = http.StatusBadRequest

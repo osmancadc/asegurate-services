@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -30,11 +29,6 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 		return ErrorMessage(err)
 	}
 	defer conn.Close()
-
-	fmt.Println(`+++++++++++++++++++++++++++++++`)
-	fmt.Printf("%v \n", reqBody)
-	fmt.Println(`+++++++++++++++++++++++++++++++`)
-	fmt.Println(reqBody.Action)
 
 	switch reqBody.Action {
 	case `insertScore`:

@@ -26,6 +26,56 @@ var ConnectDatabase = func() (connection *sql.DB, err error) {
 	return
 }
 
+func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = http.StatusInternalServerError
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
+
+	return
+}
+
+func SuccessMessage(message string) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, message)
+
+	return
+}
+
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+	return
+}
+
+func GetAuthorId(conn *sql.DB, document string) (int, error) {
+
+	id := 0
+
+	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
+	if err != nil {
+		fmt.Printf(`GetAuthorId(1): %s`, err.Error())
+		return -1, err
+	}
+
+	if results.Next() {
+		err = results.Scan(&id)
+		if err != nil {
+			fmt.Printf(`GetAuthorId(2): %s`, err.Error())
+			return -1, err
+		}
+		return id, nil
+	}
+
+	return -1, errors.New("no user found")
+}
+
 func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.APIGatewayProxyResponse, err error) {
 	results, err := conn.Query(`SELECT avg(s.score),
 							sum(case when s.score > 50 then 1 else 0 end) positiveScores,
@@ -84,11 +134,6 @@ func UploadInternalScore(conn *sql.DB, body InsertScoreBody) (response events.AP
 		return ErrorMessage(err)
 	}
 
-	fmt.Println("====================")
-	fmt.Printf("Author: %d \nObjective: %s \nScore: %d \nComments: %s",
-		authorId, body.Objective, body.Score, body.Comments)
-	fmt.Println("====================")
-
 	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, comments) VALUES(?, ?, ?, ?)`)
 	if err != nil {
 		fmt.Printf("InsertInternalScore(1) %s", err.Error())
@@ -127,57 +172,3 @@ func GetUserByPhone(conn *sql.DB, body GetByPhoneBody) (response events.APIGatew
 }
 
 // Asset functions
-
-func GetAuthorId(conn *sql.DB, document string) (int, error) {
-
-	id := 0
-
-	fmt.Println("¬¬¬¬¬¬¬¬¬¬¬¬")
-	fmt.Println(document)
-	fmt.Println("¬¬¬¬¬¬¬¬¬¬¬¬")
-
-	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
-	if err != nil {
-		fmt.Printf(`GetAuthorId(1): %s`, err.Error())
-		return -1, err
-	}
-
-	if results.Next() {
-		err = results.Scan(&id)
-		if err != nil {
-			fmt.Printf(`GetAuthorId(2): %s`, err.Error())
-			return -1, err
-		}
-		return id, nil
-	}
-
-	return -1, errors.New("no user found")
-}
-
-func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
-	response = SetResponseHeaders()
-
-	response.StatusCode = http.StatusInternalServerError
-	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
-
-	return
-}
-
-func SuccessMessage(message string) (response events.APIGatewayProxyResponse, err error) {
-	response = SetResponseHeaders()
-	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{"message":"%s"}`, message)
-
-	return
-}
-
-func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
-	response = events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-	return
-}

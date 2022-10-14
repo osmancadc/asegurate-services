@@ -2,51 +2,36 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 )
 
+type MockFindByIdClientMain struct {
+	lambdaiface.LambdaAPI
+}
+
+func (mlc *MockFindByIdClientMain) Invoke(input *lambda.InvokeInput) (*lambda.InvokeOutput, error) {
+	payload, _ := json.Marshal(InvokeResponse{
+		StatusCode: 200,
+		Body:       `{"document":"654321"}`,
+	})
+
+	return &lambda.InvokeOutput{
+		Payload: payload,
+	}, nil
+}
+
 func TestHandlerUploadScore(t *testing.T) {
-	OldConnectDatabase := ConnectDatabase
-	defer func() { ConnectDatabase = OldConnectDatabase }()
 
-	ConnectDatabase = func() (connection *sql.DB, err error) {
-		db, mock, err := sqlmock.New()
-		if err != nil {
-			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-		}
+	OldGetClient := GetClient
+	defer func() { GetClient = OldGetClient }()
 
-		columns := []string{`user_id`}
-
-		// First test mocks
-
-		mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-			WithArgs(`123456`).
-			WillReturnRows(sqlmock.NewRows(columns).AddRow(`50`))
-
-		mock.ExpectPrepare(`INSERT INTO score \((.+)\)`)
-		mock.ExpectExec(`INSERT INTO score \((.+)\)`).
-			WithArgs(50, `123456`, 50, `No comments`).
-			WillReturnResult(sqlmock.NewResult(1, 1))
-
-		// Second test mocks
-
-		mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-			WithArgs(`123456`).
-			WillReturnRows(sqlmock.NewRows(columns).AddRow(`50`))
-
-		mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-			WithArgs(`3001234567`).
-			WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`))
-		mock.ExpectPrepare(`INSERT INTO score \((.+)\)`)
-
-		mock.ExpectExec(`INSERT INTO score \((.+)\)`).
-			WithArgs(50, `123456`, 50, `No comments`).
-			WillReturnResult(sqlmock.NewResult(1, 1))
-
-		return db, nil
+	GetClient = func() lambdaiface.LambdaAPI {
+		return &MockFindByIdClientMain{}
 	}
 
 	type args struct {
@@ -71,8 +56,7 @@ func TestHandlerUploadScore(t *testing.T) {
 					}`,
 				},
 			},
-			mockFunc: ConnectDatabase,
-			wantErr:  false,
+			wantErr: false,
 		},
 		{
 			name: "Handler test with PHONE in the request",
@@ -87,8 +71,7 @@ func TestHandlerUploadScore(t *testing.T) {
 					}`,
 				},
 			},
-			mockFunc: ConnectDatabase,
-			wantErr:  false,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

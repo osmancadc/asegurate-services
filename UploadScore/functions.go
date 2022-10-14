@@ -1,86 +1,131 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	invokeLambda "github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var ConnectDatabase = func() (connection *sql.DB, err error) {
+var GetClient = func() lambdaiface.LambdaAPI {
+	region := os.Getenv(`REGION`)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{SharedConfigState: session.SharedConfigEnable}))
+	return invokeLambda.New(sess, &aws.Config{Region: aws.String(region)})
+}
 
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	database := os.Getenv("DB_NAME")
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
+	}
+	return
+}
 
-	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = http.StatusInternalServerError
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
+
+	return
+}
+
+func GetUploadInvokePayload(data RequestBody) (payload []byte) {
+	uploadBody, _ := json.Marshal(InvokeBody{Action: `insertScore`, InsertData: data})
+
+	body := InvokePayload{
+		Body: string(uploadBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func GetFindUserInvokePayload(data RequestBody) (payload []byte) {
+	uploadBody, _ := json.Marshal(
+		InvokeBody{
+			Action: `getByPhone`,
+			FindByPhoneData: FindByPhoneBody{
+				Phone: data.Objective,
+			},
+		},
+	)
+
+	body := InvokePayload{
+		Body: string(uploadBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
+
+	payload := GetUploadInvokePayload(data)
 	if err != nil {
-		fmt.Printf("ConnectDatabase(1) %s", err.Error())
-		return nil, err
+		fmt.Printf(`UploadScore(1): %s`, err.Error())
+		return err
+	}
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalScoreData"), Payload: payload})
+	if err != nil {
+		fmt.Printf(`UploadScore(3): %s`, err.Error())
+		return err
+	}
+
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`UploadScore(4): %s`, response.Body)
+		return errors.New(response.Body)
 	}
 
 	return
 }
 
-func UploadScorePhone(conn *sql.DB, author, score int, phone, comments string) error {
-	objective := ""
+func FindUserByPhone(data RequestBody, client lambdaiface.LambdaAPI) (request RequestBody, err error) {
 
-	results, err := conn.Query(`SELECT document FROM user u WHERE u.phone = ?`, phone)
+	payload := GetFindUserInvokePayload(data)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalScoreData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`UploadScorePhone(1): %s`, err.Error())
-		return err
+		fmt.Printf(`FindUserByPhone(1): %s`, err.Error())
+		return
 	}
 
-	if results.Next() {
-		err = results.Scan(&objective)
-		if err != nil {
-			fmt.Printf(`UploadScorePhone(2): %s`, err.Error())
-			return err
-		}
-		return UploadScoreDocument(conn, author, score, objective, comments)
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`FindUserByPhone(2): %s`, response.Body)
+		return
 	}
 
-	return errors.New("no se encontró ningún usuario asociado")
-}
+	userByPhone := FindByPhoneResponseBody{}
 
-func UploadScoreDocument(conn *sql.DB, author, score int, objective, comments string) error {
-	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, coments) VALUES(?, ?, ?, ?)`)
-	if err != nil {
-		fmt.Printf("UploadScore(1) %s", err.Error())
-		return err
+	err = json.Unmarshal([]byte(response.Body), &userByPhone)
+
+	request = RequestBody{
+		Author:    data.Author,
+		Type:      `CC`,
+		Objective: userByPhone.Document,
+		Score:     data.Score,
+		Comments:  data.Comments,
 	}
 
-	_, err = query.Exec(author, objective, score, comments)
-	if err != nil {
-		fmt.Printf("UploadScore(2) %s", err.Error())
-		return err
-	}
-
-	return nil
-}
-
-func GetAuthorId(conn *sql.DB, document string) (int, error) {
-
-	id := 0
-
-	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
-	if err != nil {
-		fmt.Printf(`GetFromDatabase(1): %s`, err.Error())
-		return -1, err
-	}
-
-	if results.Next() {
-		err = results.Scan(&id)
-		if err != nil {
-			fmt.Printf(`GetFromDatabase(2): %s`, err.Error())
-			return -1, err
-		}
-		return id, nil
-	}
-
-	return -1, errors.New("no user found")
-
+	return
 }

@@ -84,6 +84,11 @@ func UploadInternalScore(conn *sql.DB, body InsertScoreBody) (response events.AP
 		return ErrorMessage(err)
 	}
 
+	fmt.Println("====================")
+	fmt.Printf("Author: %d \nObjective: %s \nScore: %d \nComments: %s",
+		authorId, body.Objective, body.Score, body.Comments)
+	fmt.Println("====================")
+
 	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, comments) VALUES(?, ?, ?, ?)`)
 	if err != nil {
 		fmt.Printf("InsertInternalScore(1) %s", err.Error())
@@ -126,6 +131,10 @@ func GetUserByPhone(conn *sql.DB, body GetByPhoneBody) (response events.APIGatew
 func GetAuthorId(conn *sql.DB, document string) (int, error) {
 
 	id := 0
+
+	fmt.Println("¬¬¬¬¬¬¬¬¬¬¬¬")
+	fmt.Println(document)
+	fmt.Println("¬¬¬¬¬¬¬¬¬¬¬¬")
 
 	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
 	if err != nil {

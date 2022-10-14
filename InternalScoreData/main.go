@@ -32,7 +32,7 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 	defer conn.Close()
 
 	fmt.Println(`+++++++++++++++++++++++++++++++`)
-	fmt.Printf("%v", reqBody)
+	fmt.Printf("%v \n", reqBody)
 	fmt.Println(`+++++++++++++++++++++++++++++++`)
 	fmt.Println(reqBody.Action)
 

@@ -11,14 +11,6 @@ import (
 func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
 		return ErrorMessage(err)
@@ -28,19 +20,29 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 	if err != nil {
 		return ErrorMessage(err)
 	}
+
 	defer conn.Close()
 
 	switch reqBody.Action {
 	case `insertScore`:
-		return UploadInternalScore(conn, reqBody.InsertScoreBody)
+		return InsertInternalScore(conn, reqBody.InsertScoreBody)
 	case `updateScore`:
 		return UpdateInternalScore(conn, reqBody.UpdateScoreBody)
 	case `getScore`:
 		return GetInternalScoreSummary(conn, reqBody.GetScoreBody)
-	case `getByPhone`:
-		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
+	case `getUserByPhone`:
+		return GetUserByPhone(conn, reqBody.GetUserByPhoneBody)
+	case `getPersonByDocument`:
+		return GetPersonByDocument(conn, reqBody.GetByDocumentBody)
+	case `getUserByDocument`:
+		return GetUserByDocument(conn, reqBody.GetByDocumentBody)
+	case `insertUser`:
+		return InsertUser(conn, reqBody.InsertUserBody)
+	case `insertPerson`:
+		return InsertPerson(conn, reqBody.InsertPersonBody)
 	}
 
+	response := SetResponseHeaders()
 	response.StatusCode = http.StatusBadRequest
 	response.Body = `{"message":"not a valid action"}`
 	return response, nil

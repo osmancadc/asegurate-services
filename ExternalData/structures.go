@@ -23,7 +23,7 @@ type RequestGetName struct {
 }
 
 type RequestBody struct {
-	Scope    string         `json:"scope"`
+	Action   string         `json:"action"`
 	DataBody RequestGetData `json:"get_data,omitempty"`
 	NameBody RequestGetName `json:"get_name,omitempty"`
 }

@@ -127,7 +127,7 @@ func UpdateInternalScore(conn *sql.DB, body UpdateScoreBody) (response events.AP
 	return SuccessMessage(`User score updated successfully`)
 }
 
-func UploadInternalScore(conn *sql.DB, body InsertScoreBody) (response events.APIGatewayProxyResponse, err error) {
+func InsertInternalScore(conn *sql.DB, body InsertScoreBody) (response events.APIGatewayProxyResponse, err error) {
 
 	authorId, err := GetAuthorId(conn, body.Author)
 	if err != nil {
@@ -149,7 +149,7 @@ func UploadInternalScore(conn *sql.DB, body InsertScoreBody) (response events.AP
 	return SuccessMessage(`Score uploaded successfully`)
 }
 
-func GetUserByPhone(conn *sql.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
+func GetUserByPhone(conn *sql.DB, body GetUserByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
 	objective := ""
 
 	results, err := conn.Query(`SELECT document FROM user u WHERE u.phone = ?`, body.Phone)
@@ -171,4 +171,73 @@ func GetUserByPhone(conn *sql.DB, body GetByPhoneBody) (response events.APIGatew
 	return response, nil
 }
 
-// Asset functions
+func GetPersonByDocument(conn *sql.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	name := "not_found"
+	gender := "not_found"
+
+	results, err := conn.Query(`SELECT name, gender FROM person where document = ?`, body.Document)
+	if err != nil {
+		fmt.Printf(`GetPersonByDocument(1): %s`, err.Error())
+		return ErrorMessage(err)
+	}
+
+	if results.Next() {
+		err = results.Scan(&name, &gender)
+		if err != nil {
+			fmt.Printf(`GetPersonByDocument(2): %s`, err.Error())
+			return ErrorMessage(err)
+		}
+	}
+
+	response.StatusCode = http.StatusOK
+	response.Body = fmt.Sprintf(`{"name":"%s","gender":"%s"}`, name, gender)
+	return response, nil
+}
+
+func GetUserByDocument(conn *sql.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	results, err := conn.Query(`SELECT user_id FROM user WHERE document =  ?`, body.Document)
+	if err != nil {
+		fmt.Printf(`CheckExistingUser(1): %s`, err.Error())
+		return ErrorMessage(err)
+	}
+
+	if results.Next() {
+		fmt.Printf("CheckExistingUser(2) el usuario ya existe")
+		return SuccessMessage(`user already exists`)
+	}
+
+	return SuccessMessage(`user does not exists`)
+}
+
+func InsertUser(conn *sql.DB, body InsertUserBody) (response events.APIGatewayProxyResponse, err error) {
+	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		fmt.Printf("InsertUser(1) %s", err.Error())
+		return ErrorMessage(err)
+	}
+
+	_, err = query.Exec(body.Email, body.Phone, body.Password, body.Document, body.Role)
+	if err != nil {
+		fmt.Printf("InsertUser(2) %s", err.Error())
+		return ErrorMessage(err)
+	}
+
+	return SuccessMessage(`User inserted successfully`)
+}
+
+func InsertPerson(conn *sql.DB, body InsertPersonBody) (response events.APIGatewayProxyResponse, err error) {
+
+	query, err := conn.Prepare(`INSERT INTO person  (document, name, lastname, gender, score, reputation, photo, last_update) 
+								VALUES(?, ?, ?, ?, 50, 50, '', CURRENT_TIMESTAMP)`)
+	if err != nil {
+		fmt.Printf("InsertPerson(1) %s", err.Error())
+		return ErrorMessage(err)
+	}
+
+	_, err = query.Exec(body.Document, body.Name, body.Lastname, body.Gender)
+	if err != nil {
+		fmt.Printf("InsertPerson(2) %s", err.Error())
+		return ErrorMessage(err)
+	}
+	return SuccessMessage(`Person inserted successfully`)
+}

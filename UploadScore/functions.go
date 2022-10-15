@@ -80,7 +80,7 @@ func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
 		return err
 	}
 
-	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalScoreData"), Payload: payload})
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
 		fmt.Printf(`UploadScore(3): %s`, err.Error())
 		return err
@@ -101,7 +101,7 @@ func FindUserByPhone(data RequestBody, client lambdaiface.LambdaAPI) (request Re
 
 	payload := GetFindUserInvokePayload(data)
 
-	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalScoreData"), Payload: payload})
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
 		fmt.Printf(`FindUserByPhone(1): %s`, err.Error())
 		return

@@ -88,7 +88,7 @@ func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.A
 							FROM score s 
 							WHERE s.objective = ?`, body.Document)
 	if err != nil {
-		fmt.Printf(`GetInternalScore(1): %s`, err.Error())
+		fmt.Printf(`GetInternalScoreSummary(1): %s`, err.Error())
 		return ErrorMessage(err)
 	}
 
@@ -97,7 +97,7 @@ func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.A
 	if results.Next() {
 		err = results.Scan(&internalScore.Score, &internalScore.PositiveScores, &internalScore.NegativeScores, &internalScore.Average60Days)
 		if err != nil {
-			fmt.Printf(`GetInternalScore(2): %s`, err.Error())
+			fmt.Printf(`GetInternalScoreSummary(2): %s`, err.Error())
 			return ErrorMessage(err)
 		}
 	}
@@ -154,14 +154,14 @@ func GetUserByPhone(conn *sql.DB, body GetUserByPhoneBody) (response events.APIG
 
 	results, err := conn.Query(`SELECT document FROM user u WHERE u.phone = ?`, body.Phone)
 	if err != nil {
-		fmt.Printf(`UploadScorePhone(1): %s`, err.Error())
+		fmt.Printf(`GetUserByPhone(1): %s`, err.Error())
 		return ErrorMessage(err)
 	}
 
 	if results.Next() {
 		err = results.Scan(&objective)
 		if err != nil {
-			fmt.Printf(`UploadScorePhone(2): %s`, err.Error())
+			fmt.Printf(`GetUserByPhone(2): %s`, err.Error())
 			return ErrorMessage(err)
 		}
 	}
@@ -197,12 +197,12 @@ func GetPersonByDocument(conn *sql.DB, body GetByDocumentBody) (response events.
 func GetUserByDocument(conn *sql.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
 	results, err := conn.Query(`SELECT user_id FROM user WHERE document =  ?`, body.Document)
 	if err != nil {
-		fmt.Printf(`CheckExistingUser(1): %s`, err.Error())
+		fmt.Printf(`GetUserByDocument(1): %s`, err.Error())
 		return ErrorMessage(err)
 	}
 
 	if results.Next() {
-		fmt.Printf("CheckExistingUser(2) el usuario ya existe")
+		fmt.Printf("GetUserByDocument(2) el usuario ya existe")
 		return SuccessMessage(`user already exists`)
 	}
 

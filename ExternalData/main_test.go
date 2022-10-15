@@ -23,7 +23,7 @@ func TestHandlerExternalScoreData(t *testing.T) {
 			name: "Success test - Get Data",
 			args: args{
 				req: events.APIGatewayProxyRequest{
-					Body: `{"scope":"data","get_data":{"document":"1018500888","expedition_date":"01/01/2000"}}`,
+					Body: `{"action":"get_person_data","get_data":{"document":"123456","expedition_date":"01/01/2000"}}`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{
@@ -36,7 +36,7 @@ func TestHandlerExternalScoreData(t *testing.T) {
 			name: "Success test - Get Name",
 			args: args{
 				req: events.APIGatewayProxyRequest{
-					Body: `{"scope":"name","get_name":{"document":"1018500888","document_type":"CC"}}`,
+					Body: `{"action":"get_person_name","get_name":{"document":"1018500888","document_type":"CC"}}`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{
@@ -46,15 +46,15 @@ func TestHandlerExternalScoreData(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Error test - Bad Scope",
+			name: "Error test - Wrong Action",
 			args: args{
 				req: events.APIGatewayProxyRequest{
-					Body: `{"scope":"some_scope"}`,
+					Body: `{"action":"some_action"}`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{
 				StatusCode: 400,
-				Body:       `{"message":"not a valid scope"}`,
+				Body:       `{"message":"not a valid action"}`,
 			},
 			wantErr: false,
 		},

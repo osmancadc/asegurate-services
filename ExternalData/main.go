@@ -31,7 +31,7 @@ func HandlerExternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 	}
 
 	response.StatusCode = http.StatusBadRequest
-	response.Body = `{"message":"not a valid scope"}`
+	response.Body = `{"message":"not a valid action"}`
 	return response, nil
 
 }

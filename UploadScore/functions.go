@@ -82,7 +82,7 @@ func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
 
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`UploadScore(3): %s`, err.Error())
+		fmt.Printf(`UploadScore(2): %s`, err.Error())
 		return err
 	}
 
@@ -90,7 +90,7 @@ func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
 	json.Unmarshal(result.Payload, &response)
 
 	if response.StatusCode != 200 {
-		fmt.Printf(`UploadScore(4): %s`, response.Body)
+		fmt.Printf(`UploadScore(3): %s`, response.Body)
 		return errors.New(response.Body)
 	}
 

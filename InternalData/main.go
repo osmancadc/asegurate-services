@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -18,28 +19,26 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 
 	conn, err := ConnectDatabase()
 	if err != nil {
-		return ErrorMessage(err)
+		fmt.Println(err.Error())
 	}
-
-	defer conn.Close()
 
 	switch reqBody.Action {
 	case `insertScore`:
-		return InsertInternalScore(conn, reqBody.InsertScoreBody)
-	case `updateScore`:
-		return UpdateInternalScore(conn, reqBody.UpdateScoreBody)
+		return InsertScore(conn, reqBody.ScoreBody)
+	case `updatePerson`:
+		return UpdatePerson(conn, reqBody.PersonBody)
 	case `getScore`:
-		return GetInternalScoreSummary(conn, reqBody.GetScoreBody)
+		return GetScoreByDocument(conn, reqBody.GetByDocumentBody)
 	case `getUserByPhone`:
-		return GetUserByPhone(conn, reqBody.GetUserByPhoneBody)
+		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
 	case `getPersonByDocument`:
 		return GetPersonByDocument(conn, reqBody.GetByDocumentBody)
 	case `getUserByDocument`:
 		return GetUserByDocument(conn, reqBody.GetByDocumentBody)
 	case `insertUser`:
-		return InsertUser(conn, reqBody.InsertUserBody)
+		return InsertUser(conn, reqBody.UserBody)
 	case `insertPerson`:
-		return InsertPerson(conn, reqBody.InsertPersonBody)
+		return InsertPerson(conn, reqBody.PersonBody)
 	}
 
 	response := SetResponseHeaders()

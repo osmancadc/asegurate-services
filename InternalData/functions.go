@@ -1,28 +1,40 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
+
 	"github.com/aws/aws-lambda-go/events"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var ConnectDatabase = func() (connection *sql.DB, err error) {
+var ConnectDatabase = func() (db *gorm.DB, err error) {
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
 	database := os.Getenv("DB_NAME")
 
-	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
+	dsn := fmt.Sprintf(`%s:%s@tcp(%s)/%s`, user, password, host, database)
+
+	db, err = gorm.Open(
+		mysql.Open(dsn),
+		&gorm.Config{
+			NamingStrategy: schema.NamingStrategy{
+				SingularTable: true,
+			},
+			// Logger: logger.Discard,
+		},
+	)
 	if err != nil {
 		fmt.Printf(`Error conectando DB %s`, err.Error())
-		return nil, err
+		return
 	}
-
 	return
 }
 
@@ -54,39 +66,50 @@ func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
 	return
 }
 
-func GetAuthorId(conn *sql.DB, document string) (int, error) {
-
-	id := 0
-
-	results, err := conn.Query(`SELECT user_id FROM user u WHERE u.document = ?`, document)
-	if err != nil {
-		fmt.Printf(`GetAuthorId(1): %s`, err.Error())
-		return -1, err
+func GetAuthorId(conn *gorm.DB, document string) (int, error) {
+	user := User{}
+	result := conn.Select(`user_id`).Where(`document = ?`, document).Find(&user)
+	if result.Error != nil {
+		fmt.Printf(`GetAuthorId(1): %s`, result.Error.Error())
+		return -1, result.Error
 	}
 
-	if results.Next() {
-		err = results.Scan(&id)
-		if err != nil {
-			fmt.Printf(`GetAuthorId(2): %s`, err.Error())
-			return -1, err
-		}
-		return id, nil
+	if result.RowsAffected > 0 {
+		return user.UserId, nil
 	}
 
-	return -1, errors.New("no user found")
+	return -1, errors.New("author not found")
 }
 
-func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.APIGatewayProxyResponse, err error) {
-	results, err := conn.Query(`SELECT avg(s.score),
+func GetPersonByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	person := Person{
+		Name: `not_found`,
+	}
+	result := conn.Select(`name`, `gender`).Where(`document = ?`, body.Document).Find(&person)
+	if result.Error != nil {
+		fmt.Printf(`GetPersonByDocument(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+
+	if result.RowsAffected > 0 {
+		response = SetResponseHeaders()
+		response.StatusCode = http.StatusOK
+		response.Body = fmt.Sprintf(`{"name":"%s","gender":"%s"}`, person.Name, person.Gender)
+
+		return
+	}
+
+	return ErrorMessage(errors.New(`no person found`))
+}
+
+func GetScoreByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+
+	rows, err := conn.Raw(`SELECT avg(s.score),
 							sum(case when s.score > 50 then 1 else 0 end) positiveScores,
 							sum(case when s.score < 50 then 1 else 0 end) negativeScores,
-							avg(case 
-								when DATEDIFF(CURRENT_TIMESTAMP,s.creation_date) < 61 
-									then s.score 
-									else null 
-								end) Average60Days
+							avg(case when DATEDIFF(CURRENT_TIMESTAMP,s.creation_date) < 61 then s.score else null end) Average60Days
 							FROM score s 
-							WHERE s.objective = ?`, body.Document)
+							WHERE s.objective = ?`, body.Document).Rows()
 	if err != nil {
 		fmt.Printf(`GetInternalScoreSummary(1): %s`, err.Error())
 		return ErrorMessage(err)
@@ -94,8 +117,8 @@ func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.A
 
 	internalScore := InternalScore{}
 
-	if results.Next() {
-		err = results.Scan(&internalScore.Score, &internalScore.PositiveScores, &internalScore.NegativeScores, &internalScore.Average60Days)
+	if rows.Next() {
+		err = rows.Scan(&internalScore.Score, &internalScore.PositiveScores, &internalScore.NegativeScores, &internalScore.Average60Days)
 		if err != nil {
 			fmt.Printf(`GetInternalScoreSummary(2): %s`, err.Error())
 			return ErrorMessage(err)
@@ -109,135 +132,92 @@ func GetInternalScoreSummary(conn *sql.DB, body GetScoreBody) (response events.A
 	return response, nil
 }
 
-func UpdateInternalScore(conn *sql.DB, body UpdateScoreBody) (response events.APIGatewayProxyResponse, err error) {
-	query, err := conn.Prepare(`UPDATE person
-								SET score=?, reputation=?, last_update=CURRENT_TIMESTAMP
-								WHERE document= ?`)
-	if err != nil {
-		fmt.Printf("UpdateInternalScore(1) %s", err.Error())
-		return ErrorMessage(err)
+func GetUserByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
+
+	user := User{}
+	result := conn.Select(`document`).Where(`phone = ?`, body.Phone).Find(&user)
+	if result.Error != nil {
+		fmt.Printf(`GetUserByPhone(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
 	}
 
-	_, err = query.Exec(body.Score, body.Reputation, body.Document)
-	if err != nil {
-		fmt.Printf("UpdateInternalScore(2) %s", err.Error())
-		return ErrorMessage(err)
+	if result.RowsAffected > 0 {
+		response.StatusCode = http.StatusOK
+		response.Body = fmt.Sprintf(`{"document":"%s"}`, user.Document)
+		return response, nil
 	}
 
-	return SuccessMessage(`User score updated successfully`)
+	return ErrorMessage(errors.New(`user not found`))
 }
 
-func InsertInternalScore(conn *sql.DB, body InsertScoreBody) (response events.APIGatewayProxyResponse, err error) {
-
-	authorId, err := GetAuthorId(conn, body.Author)
-	if err != nil {
-		return ErrorMessage(err)
+func GetUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	user := User{}
+	result := conn.Select(`user_id`).Where(`document = ?`, body.Document).Find(&user)
+	if result.Error != nil {
+		fmt.Printf(`GetUserByDocument(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
 	}
 
-	query, err := conn.Prepare(`INSERT INTO score (author, objective, score, comments) VALUES(?, ?, ?, ?)`)
-	if err != nil {
-		fmt.Printf("InsertInternalScore(1) %s", err.Error())
-		return ErrorMessage(err)
-	}
-
-	_, err = query.Exec(authorId, body.Objective, body.Score, body.Comments)
-	if err != nil {
-		fmt.Printf("InsertInternalScore(2) %s", err.Error())
-		return ErrorMessage(err)
-	}
-
-	return SuccessMessage(`Score uploaded successfully`)
-}
-
-func GetUserByPhone(conn *sql.DB, body GetUserByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
-	objective := ""
-
-	results, err := conn.Query(`SELECT document FROM user u WHERE u.phone = ?`, body.Phone)
-	if err != nil {
-		fmt.Printf(`GetUserByPhone(1): %s`, err.Error())
-		return ErrorMessage(err)
-	}
-
-	if results.Next() {
-		err = results.Scan(&objective)
-		if err != nil {
-			fmt.Printf(`GetUserByPhone(2): %s`, err.Error())
-			return ErrorMessage(err)
-		}
-	}
-
-	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{"document":"%s"}`, objective)
-	return response, nil
-}
-
-func GetPersonByDocument(conn *sql.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
-	name := "not_found"
-	gender := "not_found"
-
-	results, err := conn.Query(`SELECT name, gender FROM person where document = ?`, body.Document)
-	if err != nil {
-		fmt.Printf(`GetPersonByDocument(1): %s`, err.Error())
-		return ErrorMessage(err)
-	}
-
-	if results.Next() {
-		err = results.Scan(&name, &gender)
-		if err != nil {
-			fmt.Printf(`GetPersonByDocument(2): %s`, err.Error())
-			return ErrorMessage(err)
-		}
-	}
-
-	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{"name":"%s","gender":"%s"}`, name, gender)
-	return response, nil
-}
-
-func GetUserByDocument(conn *sql.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
-	results, err := conn.Query(`SELECT user_id FROM user WHERE document =  ?`, body.Document)
-	if err != nil {
-		fmt.Printf(`GetUserByDocument(1): %s`, err.Error())
-		return ErrorMessage(err)
-	}
-
-	if results.Next() {
-		fmt.Printf("GetUserByDocument(2) el usuario ya existe")
+	if result.RowsAffected > 0 {
 		return SuccessMessage(`user already exists`)
 	}
 
 	return SuccessMessage(`user does not exists`)
 }
 
-func InsertUser(conn *sql.DB, body InsertUserBody) (response events.APIGatewayProxyResponse, err error) {
-	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?)`)
+func InsertScore(conn *gorm.DB, body ScoreBody) (response events.APIGatewayProxyResponse, err error) {
+
+	authorId, err := GetAuthorId(conn, body.Author)
 	if err != nil {
-		fmt.Printf("InsertUser(1) %s", err.Error())
 		return ErrorMessage(err)
 	}
 
-	_, err = query.Exec(body.Email, body.Phone, body.Password, body.Document, body.Role)
-	if err != nil {
-		fmt.Printf("InsertUser(2) %s", err.Error())
-		return ErrorMessage(err)
+	score := Score{
+		Author:    authorId,
+		Objective: body.Objective,
+		Score:     body.Score,
+		Comments:  body.Comments,
+	}
+
+	result := conn.Create([]Score{score})
+	if result.Error != nil {
+		return ErrorMessage(result.Error)
+	}
+
+	return SuccessMessage(`Score uploaded successfully`)
+}
+
+func InsertUser(conn *gorm.DB, user User) (response events.APIGatewayProxyResponse, err error) {
+	result := conn.Create([]User{user})
+	if result.Error != nil {
+		fmt.Printf("InsertUser(1) %s", result.Error.Error())
+		return ErrorMessage(result.Error)
 	}
 
 	return SuccessMessage(`User inserted successfully`)
 }
 
-func InsertPerson(conn *sql.DB, body InsertPersonBody) (response events.APIGatewayProxyResponse, err error) {
+func InsertPerson(conn *gorm.DB, person Person) (response events.APIGatewayProxyResponse, err error) {
 
-	query, err := conn.Prepare(`INSERT INTO person  (document, name, lastname, gender, score, reputation, photo, last_update) 
-								VALUES(?, ?, ?, ?, 50, 50, '', CURRENT_TIMESTAMP)`)
-	if err != nil {
-		fmt.Printf("InsertPerson(1) %s", err.Error())
-		return ErrorMessage(err)
+	result := conn.Create([]Person{person})
+	if result.Error != nil {
+		fmt.Printf("InsertUser(1) %s", result.Error.Error())
+		return ErrorMessage(result.Error)
 	}
 
-	_, err = query.Exec(body.Document, body.Name, body.Lastname, body.Gender)
-	if err != nil {
-		fmt.Printf("InsertPerson(2) %s", err.Error())
-		return ErrorMessage(err)
-	}
 	return SuccessMessage(`Person inserted successfully`)
+}
+
+func UpdatePerson(conn *gorm.DB, person Person) (response events.APIGatewayProxyResponse, err error) {
+
+	result := conn.Where(`document = ?`, person.Document).Updates(&person)
+	if result.Error != nil {
+		return ErrorMessage(result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return ErrorMessage(errors.New(`no data was updated`))
+	}
+
+	return SuccessMessage(`Person data updated successfully`)
 }

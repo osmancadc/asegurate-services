@@ -1,14 +1,16 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/aws/aws-lambda-go/events"
 	_ "github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 func TestConnectDatabase(t *testing.T) {
@@ -21,8 +23,8 @@ func TestConnectDatabase(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Success Test",
-			wantErr: false,
+			name:    "Error Test",
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -48,7 +50,7 @@ func TestErrorMessage(t *testing.T) {
 		wantErr      bool
 	}{
 		{
-			name: "Testing with message",
+			name: "Success Test",
 			args: args{
 				functionError: errors.New("some error"),
 			},
@@ -85,7 +87,7 @@ func TestSuccessMessage(t *testing.T) {
 		wantErr      bool
 	}{
 		{
-			name: "Testing with message",
+			name: "Success Test",
 			args: args{
 				message: "success message",
 			},
@@ -111,15 +113,43 @@ func TestSuccessMessage(t *testing.T) {
 	}
 }
 
+func TestSetResponseHeaders(t *testing.T) {
+	tests := []struct {
+		name         string
+		wantResponse events.APIGatewayProxyResponse
+	}{
+		{
+			name: `Success Test`,
+			wantResponse: events.APIGatewayProxyResponse{
+				Headers: map[string]string{
+					"Content-Type":                 "application/json",
+					"Access-Control-Allow-Origin":  "*",
+					"Access-Control-Allow-Methods": "POST",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotResponse := SetResponseHeaders(); !reflect.DeepEqual(gotResponse, tt.wantResponse) {
+				t.Errorf("SetResponseHeaders() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
 func TestGetAuthorId(t *testing.T) {
-	db, mock, err := sqlmock.New()
+	pool, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
-	columns := []string{`col1`}
-	columns_error := []string{`col1`, `col2`}
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`user_id`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
@@ -131,11 +161,8 @@ func TestGetAuthorId(t *testing.T) {
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`78910`)
 
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`09876`).WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`56`, `65`))
-
 	type args struct {
-		conn     *sql.DB
+		conn     *gorm.DB
 		document string
 	}
 	tests := []struct {
@@ -145,7 +172,7 @@ func TestGetAuthorId(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Tests success",
+			name: "Success Test",
 			args: args{
 				conn:     db,
 				document: `123456`,
@@ -154,7 +181,7 @@ func TestGetAuthorId(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Test no user found",
+			name: "Error Test - User Not Found",
 			args: args{
 				conn:     db,
 				document: `654321`,
@@ -163,19 +190,10 @@ func TestGetAuthorId(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Test error in database",
+			name: "Error Test - Database Error",
 			args: args{
 				conn:     db,
 				document: `78910`,
-			},
-			want:    -1,
-			wantErr: true,
-		},
-		{
-			name: "Test error in return of database",
-			args: args{
-				conn:     db,
-				document: `09876`,
 			},
 			want:    -1,
 			wantErr: true,
@@ -195,330 +213,18 @@ func TestGetAuthorId(t *testing.T) {
 	}
 }
 
-func TestInsertInternalScore(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`col1`}
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`56`))
-
-	mock.ExpectPrepare(`INSERT INTO score \((.+)\)`)
-
-	mock.ExpectExec(`INSERT INTO score \((.+)\)`).
-		WithArgs(56, `678910`, 20, `test comment`).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`678901`).
-		WillReturnRows(sqlmock.NewRows(columns))
-
-	type args struct {
-		conn *sql.DB
-		body InsertScoreBody
-	}
-	tests := []struct {
-		name         string
-		args         args
-		wantResponse events.APIGatewayProxyResponse
-		wantErr      bool
-	}{
-		{
-			name: "Tests success",
-			args: args{
-				conn: db,
-				body: InsertScoreBody{
-					Author:    `123456`,
-					Objective: `678910`,
-					Score:     20,
-					Comments:  `test comment`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 200,
-				Body:       `{"message":"Score uploaded successfully"}`,
-			},
-		},
-		{
-			name: "Tests error author not found",
-			args: args{
-				conn: db,
-				body: InsertScoreBody{
-					Author:    `678901`,
-					Objective: `678910`,
-					Score:     20,
-					Comments:  `test comment`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"no user found"}`,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := InsertInternalScore(tt.args.conn, tt.args.body)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("InsertInternalScore() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
-				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
-}
-
-func TestGetInternalScoreSummary(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`col1`, `col2`, `col3`, `col4`}
-	columns_error := []string{`col1`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(78.5, 5, 5, 45.0))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`654321`).
-		WillReturnError(errors.New(`some database error`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`678901`).
-		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(78.5))
-
-	type args struct {
-		conn *sql.DB
-		body GetScoreBody
-	}
-	tests := []struct {
-		name         string
-		args         args
-		wantResponse events.APIGatewayProxyResponse
-		wantErr      bool
-	}{
-		{
-			name: "Test succesfull",
-			args: args{
-				conn: db,
-				body: GetScoreBody{
-					Document: `123456`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 200,
-				Body:       `{ "score": 78.500000, "positive_scores": 5, "negative_scores":5, "average_60_days":45.000000 }`,
-			},
-			wantErr: false,
-		},
-		{
-			name: "Test error database result",
-			args: args{
-				conn: db,
-				body: GetScoreBody{
-					Document: `654321`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"some database error"}`,
-			},
-			wantErr: false,
-		},
-		{
-			name: "Test error database number of columns",
-			args: args{
-				conn: db,
-				body: GetScoreBody{
-					Document: `678901`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"sql: expected 1 destination arguments in Scan, not 4"}`,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := GetInternalScoreSummary(tt.args.conn, tt.args.body)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetInternalScoreSummary() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
-				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
-}
-
-func TestUpdateInternalScore(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	mock.ExpectPrepare(`UPDATE person SET (.+)`)
-
-	mock.ExpectExec(`UPDATE person (.+)`).
-		WithArgs(56, 20, `123456`).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	type args struct {
-		conn *sql.DB
-		body UpdateScoreBody
-	}
-	tests := []struct {
-		name         string
-		args         args
-		wantResponse events.APIGatewayProxyResponse
-		wantErr      bool
-	}{
-		{
-			name: "Test successfull",
-			args: args{
-				conn: db,
-				body: UpdateScoreBody{
-					Document:   `123456`,
-					Score:      56,
-					Reputation: 20,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 200,
-				Body:       `{"message":"User score updated successfully"}`,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := UpdateInternalScore(tt.args.conn, tt.args.body)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateInternalScore() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
-				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
-}
-
-func TestGetUserByPhone(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`col1`}
-	columns_error := []string{`col1`, `col2`}
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`3123456789`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`3987654321`).
-		WillReturnError(errors.New(`some error`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456789`).
-		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`123456`, `something`))
-
-	type args struct {
-		conn *sql.DB
-		body GetUserByPhoneBody
-	}
-	tests := []struct {
-		name         string
-		args         args
-		wantResponse events.APIGatewayProxyResponse
-		wantErr      bool
-	}{
-		{
-			name: `Success test`,
-			args: args{
-				conn: db,
-				body: GetUserByPhoneBody{
-					Phone: `3123456789`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 200,
-				Body:       `{"document":"123456"}`,
-			},
-			wantErr: false,
-		},
-		{
-			name: `Error test - database error`,
-			args: args{
-				conn: db,
-				body: GetUserByPhoneBody{
-					Phone: `3987654321`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"some error"}`,
-			},
-			wantErr: false,
-		},
-		{
-			name: `Error test - wrong database return`,
-			args: args{
-				conn: db,
-				body: GetUserByPhoneBody{
-					Phone: `123456789`,
-				},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"sql: expected 2 destination arguments in Scan, not 1"}`,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := GetUserByPhone(tt.args.conn, tt.args.body)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetUserByPhone() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
-				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("InsertInternalScore() = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
-}
-
 func TestGetPersonByDocument(t *testing.T) {
-	db, mock, err := sqlmock.New()
+	pool, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
-	columns := []string{`col1`, `col2`}
-	columns_error := []string{`col1`}
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
+	columns := []string{`name`, `gender`}
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
 		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_gender`))
@@ -528,11 +234,11 @@ func TestGetPersonByDocument(t *testing.T) {
 		WillReturnError(errors.New(`some_error`))
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`654321`).
-		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`some_name`))
+		WithArgs(`098765`).
+		WillReturnRows(sqlmock.NewRows(columns))
 
 	type args struct {
-		conn *sql.DB
+		conn *gorm.DB
 		body GetByDocumentBody
 	}
 	tests := []struct {
@@ -556,7 +262,7 @@ func TestGetPersonByDocument(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: `Error test - Error from DB`,
+			name: `Error test - Database Error`,
 			args: args{
 				conn: db,
 				body: GetByDocumentBody{
@@ -570,16 +276,16 @@ func TestGetPersonByDocument(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: `Error test - Wrong amount of cols`,
+			name: `Error test - No Person Found`,
 			args: args{
 				conn: db,
 				body: GetByDocumentBody{
-					Document: `654321`,
+					Document: `098765`,
 				},
 			},
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 500,
-				Body:       `{"message":"sql: expected 1 destination arguments in Scan, not 2"}`,
+				Body:       `{"message":"no person found"}`,
 			},
 			wantErr: false,
 		},
@@ -599,14 +305,204 @@ func TestGetPersonByDocument(t *testing.T) {
 	}
 }
 
-func TestGetUserByDocument(t *testing.T) {
-	db, mock, err := sqlmock.New()
+func TestGetScoreByDocument(t *testing.T) {
+	pool, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
-	columns := []string{`col1`}
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`col1`, `col2`, `col3`, `col4`}
+	columns_error := []string{`col1`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(78.5, 5, 5, 45.0))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`654321`).
+		WillReturnError(errors.New(`some database error`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`678901`).
+		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(78.5))
+	type args struct {
+		conn *gorm.DB
+		body GetByDocumentBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: "Success Test",
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{ "score": 78.500000, "positive_scores": 5, "negative_scores":5, "average_60_days":45.000000 }`,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Error Test - Database Error",
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `654321`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some database error"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Error Tests - Wrong Number Of Columns",
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `678901`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"sql: expected 1 destination arguments in Scan, not 4"}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := GetScoreByDocument(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetScoreByDocument() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("GetScoreByDocument() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestGetUserByPhone(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`document`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`3123456789`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`3987654321`).
+		WillReturnError(errors.New(`some error`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`302468024`).
+		WillReturnRows(sqlmock.NewRows(columns))
+
+	type args struct {
+		conn *gorm.DB
+		body GetByPhoneBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success test`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `3123456789`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"document":"123456"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error test - Database Error`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `3987654321`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some error"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error test - User Not Found`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `302468024`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"user not found"}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := GetUserByPhone(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetUserByPhone() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("GetUserByPhone() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestGetUserByDocument(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`document`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
@@ -621,7 +517,7 @@ func TestGetUserByDocument(t *testing.T) {
 		WillReturnError(errors.New(`some_error`))
 
 	type args struct {
-		conn *sql.DB
+		conn *gorm.DB
 		body GetByDocumentBody
 	}
 	tests := []struct {
@@ -644,7 +540,7 @@ func TestGetUserByDocument(t *testing.T) {
 			},
 		},
 		{
-			name: "Success Test - User Doesn's Exists",
+			name: "Success Test - User Doesn't Exists",
 			args: args{
 				conn: db,
 				body: GetByDocumentBody{
@@ -685,32 +581,147 @@ func TestGetUserByDocument(t *testing.T) {
 	}
 }
 
-func TestInsertUser(t *testing.T) {
-	db, mock, err := sqlmock.New()
+func TestInsertScore(t *testing.T) {
+	pool, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
-	// columns := []string{`col1`}
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	mock.ExpectPrepare(`INSERT INTO user (.+)`)
+	columns := []string{`user_id`}
 
-	mock.ExpectExec(`INSERT INTO user (.+)`).
-		WithArgs(`some@email.com`, `3123456789`, `some_password`, `123456`, `some_role`).
+	// First test mocks
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(56))
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO  (.+)`).
+		WithArgs(56, `678910`, 20, `test comment`).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
-	mock.ExpectPrepare(`INSERT INTO user (.+)`).WillReturnError(errors.New(`some_error`))
+	// Second test mocks
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`678901`).
+		WillReturnRows(sqlmock.NewRows(columns))
 
-	mock.ExpectPrepare(`INSERT INTO user (.+)`)
+	// Third test mocks
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`098765`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(56))
 
-	mock.ExpectExec(`INSERT INTO user (.+)`).
-		WithArgs(``, ``, ``, ``, ``).
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO  (.+)`).
+		WithArgs(56, `678910`, 20, `test comment`).
 		WillReturnError(errors.New(`some_error`))
+	mock.ExpectRollback()
 
 	type args struct {
-		conn *sql.DB
-		body InsertUserBody
+		conn *gorm.DB
+		body ScoreBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: "Success Test",
+			args: args{
+				conn: db,
+				body: ScoreBody{
+					Author:    `123456`,
+					Objective: `678910`,
+					Score:     20,
+					Comments:  `test comment`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"message":"Score uploaded successfully"}`,
+			},
+		},
+		{
+			name: "Error Test - Author not found",
+			args: args{
+				conn: db,
+				body: ScoreBody{
+					Author:    `678901`,
+					Objective: `678910`,
+					Score:     20,
+					Comments:  `test comment`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"author not found"}`,
+			},
+		},
+		{
+			name: "Error Test - Error From Database",
+			args: args{
+				conn: db,
+				body: ScoreBody{
+					Author:    `098765`,
+					Objective: `678910`,
+					Score:     20,
+					Comments:  `test comment`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some_error"}`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := InsertScore(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("InsertScore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("InsertScore() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestInsertUser(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	//First test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO  (.+)`).
+		WithArgs(`123456`, `some@email.com`, `3123456789`, `some_password`, `some_role`).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	//Second test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO  (.+)`).
+		WillReturnError(errors.New(`some_error`))
+	mock.ExpectRollback()
+
+	type args struct {
+		conn *gorm.DB
+		user User
 	}
 	tests := []struct {
 		name         string
@@ -722,7 +733,7 @@ func TestInsertUser(t *testing.T) {
 			name: `Success Test`,
 			args: args{
 				conn: db,
-				body: InsertUserBody{
+				user: User{
 					Email:    `some@email.com`,
 					Phone:    `3123456789`,
 					Password: `some_password`,
@@ -737,22 +748,10 @@ func TestInsertUser(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: `Error Test - Error Preparing Query`,
+			name: `Error Test`,
 			args: args{
 				conn: db,
-				body: InsertUserBody{},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"some_error"}`,
-			},
-			wantErr: false,
-		},
-		{
-			name: `Error Test - Error Executing Query`,
-			args: args{
-				conn: db,
-				body: InsertUserBody{},
+				user: User{},
 			},
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 500,
@@ -763,7 +762,7 @@ func TestInsertUser(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := InsertUser(tt.args.conn, tt.args.body)
+			gotResponse, err := InsertUser(tt.args.conn, tt.args.user)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InsertUser() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -777,28 +776,32 @@ func TestInsertUser(t *testing.T) {
 }
 
 func TestInsertPerson(t *testing.T) {
-
-	db, mock, err := sqlmock.New()
+	pool, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
-	mock.ExpectPrepare(`INSERT INTO person (.+)`)
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	mock.ExpectExec(`INSERT INTO person (.+)`).
-		WithArgs(`123456`, `some_name`, `some_lastname`, `some_gender`).
+	//First test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO  (.+)`).
+		WithArgs(`123456`, `some_name`, `some_lastname`, `some_gender`, 0, 0, ``).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
-	mock.ExpectPrepare(`INSERT INTO person (.+)`).WillReturnError(errors.New(`some_error`))
-
-	mock.ExpectPrepare(`INSERT INTO person (.+)`)
-	mock.ExpectExec(`INSERT INTO person (.+)`).
+	//Second test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO  (.+)`).
 		WillReturnError(errors.New(`some_error`))
+	mock.ExpectRollback()
 
 	type args struct {
-		conn *sql.DB
-		body InsertPersonBody
+		conn   *gorm.DB
+		person Person
 	}
 	tests := []struct {
 		name         string
@@ -810,7 +813,7 @@ func TestInsertPerson(t *testing.T) {
 			name: "Success Test",
 			args: args{
 				conn: db,
-				body: InsertPersonBody{
+				person: Person{
 					Document: `123456`,
 					Name:     `some_name`,
 					Lastname: `some_lastname`,
@@ -823,21 +826,10 @@ func TestInsertPerson(t *testing.T) {
 			},
 		},
 		{
-			name: "Error Test - Preparing Statement",
+			name: "Error Test - Database Error",
 			args: args{
-				conn: db,
-				body: InsertPersonBody{},
-			},
-			wantResponse: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"some_error"}`,
-			},
-		},
-		{
-			name: "Error Test - Executing Query",
-			args: args{
-				conn: db,
-				body: InsertPersonBody{},
+				conn:   db,
+				person: Person{},
 			},
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 500,
@@ -847,14 +839,114 @@ func TestInsertPerson(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := InsertPerson(tt.args.conn, tt.args.body)
+			gotResponse, err := InsertPerson(tt.args.conn, tt.args.person)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InsertPerson() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
 				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("InsertUser() = %v, want %v", gotResponse, tt.wantResponse)
+				t.Errorf("InsertPerson() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestUpdatePerson(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	//First test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE (.+)`).
+		WithArgs(`some_gender`, `123456`).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	//Second test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE (.+)`).
+		WithArgs(50, `123456`).
+		WillReturnResult(sqlmock.NewResult(1, 0))
+	mock.ExpectCommit()
+
+	// //Third test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE (.+)`).
+		WithArgs(`some_photo`, `654321`).
+		WillReturnError(errors.New(`some_error`))
+	mock.ExpectRollback()
+
+	type args struct {
+		conn   *gorm.DB
+		person Person
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test - Update Gender`,
+			args: args{
+				conn: db,
+				person: Person{
+					Document: `123456`,
+					Gender:   `some_gender`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"message":"Person data updated successfully"}`,
+			},
+		},
+		{
+			name: `Error Test - No Data Updated`,
+			args: args{
+				conn: db,
+				person: Person{
+					Score:    50,
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"no data was updated"}`,
+			},
+		},
+		{
+			name: `Error Test - Database Error`,
+			args: args{
+				conn: db,
+				person: Person{
+					Photo:    `some_photo`,
+					Document: `654321`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some_error"}`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := UpdatePerson(tt.args.conn, tt.args.person)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdatePerson() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("UpdatePerson() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}

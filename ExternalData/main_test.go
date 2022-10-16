@@ -23,12 +23,12 @@ func TestHandlerExternalScoreData(t *testing.T) {
 			name: "Success test - Get Data",
 			args: args{
 				req: events.APIGatewayProxyRequest{
-					Body: `{"action":"get_person_data","get_data":{"document":"123456","expedition_date":"01/01/2000"}}`,
+					Body: `{"action":"getPersonData","get_data":{"document":"123456","expedition_date":"01/01/2000"}}`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{
 				StatusCode: 200,
-				Body:       `{ "full_name":"some_full_name", "first_name":"some_name", "last_name":"some_lastname", "gender":"HOMBRE", "isAlive":true}`,
+				Body:       `{ "full_name":"some_full_name", "name":"some_name", "lastname":"some_lastname", "gender":"HOMBRE", "is_alive":true}`,
 			},
 			wantErr: false,
 		},
@@ -36,7 +36,7 @@ func TestHandlerExternalScoreData(t *testing.T) {
 			name: "Success test - Get Name",
 			args: args{
 				req: events.APIGatewayProxyRequest{
-					Body: `{"action":"get_person_name","get_name":{"document":"1018500888","document_type":"CC"}}`,
+					Body: `{"action":"getPersonName","get_name":{"document":"123456","document_type":"CC"}}`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{

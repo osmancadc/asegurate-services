@@ -76,7 +76,7 @@ func GetPersonData(data RequestGetData) (events.APIGatewayProxyResponse, error) 
 
 	response := SetResponseHeaders()
 	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{ "full_name":"%s", "first_name":"%s", "last_name":"%s", "gender":"%s", "isAlive":%t}`,
+	response.Body = fmt.Sprintf(`{ "full_name":"%s", "name":"%s", "lastname":"%s", "gender":"%s", "is_alive":%t}`,
 		person.Data.FullName, person.Data.Name, person.Data.Lastname, person.Data.Gender, person.Data.IsAlive)
 
 	return response, nil

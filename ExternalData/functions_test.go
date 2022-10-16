@@ -121,7 +121,7 @@ func TestGetPersonData(t *testing.T) {
 			},
 			want: events.APIGatewayProxyResponse{
 				StatusCode: 200,
-				Body:       `{ "full_name":"some_full_name", "first_name":"some_name", "last_name":"some_lastname", "gender":"HOMBRE", "isAlive":true}`,
+				Body:       `{ "full_name":"some_full_name", "name":"some_name", "lastname":"some_lastname", "gender":"HOMBRE", "is_alive":true}`,
 			},
 			wantErr: false,
 		},

@@ -24,9 +24,9 @@ func HandlerExternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 	defer conn.Close()
 
 	switch reqBody.Action {
-	case `get_person_data`:
+	case `getPersonData`:
 		return GetPersonData(reqBody.DataBody)
-	case `get_person_name`:
+	case `getPersonName`:
 		return GetPersonName(reqBody.NameBody)
 	}
 

@@ -4,10 +4,10 @@ import "time"
 
 type RequestBody struct {
 	Action            string            `json:"action"`
-	PersonBody        Person            `json:"update_score_body,omitempty"`
-	UserBody          User              `json:"insert_user_body,omitempty"`
-	ScoreBody         ScoreBody         `json:"insert_score_body,omitempty"`
-	GetByPhoneBody    GetByPhoneBody    `json:"get_user_by_phone_body,omitempty"`
+	PersonBody        Person            `json:"person_body,omitempty"`
+	UserBody          User              `json:"user_body,omitempty"`
+	ScoreBody         ScoreBody         `json:"score_body,omitempty"`
+	GetByPhoneBody    GetByPhoneBody    `json:"get_by_phone_body,omitempty"`
 	GetByDocumentBody GetByDocumentBody `json:"get_by_document_body,omitempty"`
 }
 
@@ -45,13 +45,13 @@ type User struct {
 }
 
 type Person struct {
-	Document   string    `gorm:"<-:create"`
-	Name       string    `gorm:"<-:create"`
-	Lastname   string    `gorm:"<-:create"`
-	Gender     string    `gorm:"<-"`
-	Score      int       `gorm:"<-"`
-	Reputation int       `gorm:"<-"`
-	Photo      string    `gorm:"<-"`
+	Document   string    `gorm:"<-:create" json:"document"`
+	Name       string    `gorm:"<-:create" json:"name,omitempty"`
+	Lastname   string    `gorm:"<-:create" json:"lastname,omitempty"`
+	Gender     string    `gorm:"<-" json:"gender,omitempty"`
+	Score      int       `gorm:"<-" json:"score,omitempty"`
+	Reputation int       `gorm:"<-" json:"reputation,omitempty"`
+	Photo      string    `gorm:"<-" json:"photo,omitempty"`
 	LastUpdate time.Time `gorm:"<-:update"`
 }
 

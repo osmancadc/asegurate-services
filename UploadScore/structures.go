@@ -14,7 +14,7 @@ type FindByPhoneBody struct {
 
 type InvokeBody struct {
 	Action          string          `json:"action"`
-	InsertData      RequestBody     `json:"insert_score_body,omitempty"`
+	InsertData      RequestBody     `json:"score_body,omitempty"`
 	FindByPhoneData FindByPhoneBody `json:"get_by_phone_body,omitempty"`
 }
 

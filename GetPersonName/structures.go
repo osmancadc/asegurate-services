@@ -9,3 +9,45 @@ type Data struct {
 type Person struct {
 	Data Data `json:"data"`
 }
+
+type InvokePayload struct {
+	Body string `json:"body"`
+}
+
+type InvokeBody struct {
+	Action          string            `json:"action"`
+	GetByDocument   GetByDocumentBody `json:"get_by_document_body,omitempty"`
+	GetByPhone      GetByPhoneBody    `json:"get_by_phone_body,omitempty"`
+	GetExternalBody GetExternalBody   `json:"name_body,omitempty"`
+}
+
+type GetExternalBody struct {
+	Document     string `json:"document"`
+	DocumentType string `json:"document_type"`
+}
+
+type GetByDocumentBody struct {
+	Document string `json:"document"`
+}
+
+type GetByPhoneBody struct {
+	Phone string `json:"phone"`
+}
+
+type InvokeResponse struct {
+	StatusCode int    `json:"statusCode"`
+	Body       string `json:"body"`
+}
+
+type ResponseBody struct {
+	Fullname string `json:"fullname"`
+}
+
+type ExternalResponseBody struct {
+	Name     string `json:"name"`
+	Lastname string `json:"lastname"`
+}
+
+type MessageBody struct {
+	Message string `json:"message"`
+}

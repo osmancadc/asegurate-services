@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"errors"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -10,56 +9,30 @@ import (
 
 func HandlerGetPersonName(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "GET",
-		},
-	}
+	client := GetClient()
 
 	dataType := req.PathParameters["type"]
 	dataValue := req.PathParameters["value"]
 
-	fmt.Printf(`%s -> %s`, dataType, dataValue)
-
-	conn, err := ConnectDatabase()
+	found, name, err := GetNameFromDatabase(dataType, dataValue, client)
 	if err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-	defer conn.Close()
-
-	found, name, err := GetFromDatabase(conn, dataType, dataValue)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 
 	if found {
-		response.Body = fmt.Sprintf(`{ "message": "success","name":"%s"}`, name)
-		response.StatusCode = http.StatusOK
-		return response, nil
+		return SuccessMessage(name)
 	}
 
-	found, name, err = GetFromProvider(dataType, dataValue)
+	found, name, err = GetNameFromProvider(dataType, dataValue, client)
 	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 
 	if found {
-		response.Body = fmt.Sprintf(`{ "message": "success","name":"%s"}`, name)
-		response.StatusCode = http.StatusOK
-		return response, nil
+		return SuccessMessage(name)
 	}
 
-	response.Body = `{ "message": "El usuario no se pudo encontrar"}`
-	response.StatusCode = http.StatusInternalServerError
-	return response, nil
-
+	return ErrorMessage(errors.New(`el usuario no se pudo encontrar`))
 }
 
 func main() {

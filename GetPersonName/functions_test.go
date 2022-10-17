@@ -1,63 +1,213 @@
 package main
 
 import (
-	"database/sql"
-	"os"
+	"errors"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
-
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func TestConnectDatabase(t *testing.T) {
-	os.Setenv(`DB_USER`, `root`)
-	os.Setenv(`DB_PASSWORD`, `1234`)
-	os.Setenv(`DB_HOST`, `dbhost`)
-	os.Setenv(`DB_NAME`, `dbname`)
+func TestGetClient(t *testing.T) {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name string
+		want lambdaiface.LambdaAPI
 	}{
 		{
-			name:    "Success Test",
+			name: `Single test`,
+			want: &lambda.Lambda{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			GetClient()
+		})
+	}
+}
+
+func TestErrorMessage(t *testing.T) {
+	type args struct {
+		functionError error
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: "Success Test",
+			args: args{
+				functionError: errors.New(`some error`),
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some error"}`,
+			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ConnectDatabase()
+			gotResponse, err := ErrorMessage(tt.args.functionError)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ConnectDatabase() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ErrorMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("ErrorMessage() = %v, want %v", gotResponse, tt.wantResponse)
+			}
 		})
 	}
 }
 
-func TestGetFromDatabase(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`name`}
-	columns_error := []string{`some`, `some2`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name some_lastname`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+) INNER JOIN (.+)`).
-		WithArgs(`3001234567`).
-		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`some result`, `some other result`))
-
+func TestSuccessMessage(t *testing.T) {
 	type args struct {
-		conn      *sql.DB
-		dataType  string
-		dataValue string
+		name string
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				name: `some_name`,
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{ "message": "success","name":"some_name"}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := SuccessMessage(tt.args.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SuccessMessage() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("SuccessMessage() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestGetNameByPhone(t *testing.T) {
+	type args struct {
+		phone  string
+		client lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantName string
+		wantErr  bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				phone:  `3123456`,
+				client: &MockGetByPhone{},
+			},
+			wantName: `some_fullname`,
+			wantErr:  false,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				client: &MockGetByPhone{},
+			},
+			wantName: ``,
+			wantErr:  true,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockGetByPhone{},
+			},
+			wantName: ``,
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, err := GetNameByPhone(tt.args.phone, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNameByPhone() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotName != tt.wantName {
+				t.Errorf("GetNameByPhone() = %v, want %v", gotName, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestGetNameByDocument(t *testing.T) {
+	type args struct {
+		document string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantName string
+		wantErr  bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				document: `123456`,
+				client:   &MockGetByDocument{},
+			},
+			wantName: `some_fullname`,
+			wantErr:  false,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				client: &MockGetByDocument{},
+			},
+			wantName: ``,
+			wantErr:  true,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockGetByDocument{},
+			},
+			wantName: ``,
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, err := GetNameByDocument(tt.args.document, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNameByDocument() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotName != tt.wantName {
+				t.Errorf("GetNameByDocument() = %v, want %v", gotName, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestGetNameFromProvider(t *testing.T) {
+	type args struct {
+		documentType string
+		document     string
+		client       lambdaiface.LambdaAPI
 	}
 	tests := []struct {
 		name    string
@@ -67,22 +217,40 @@ func TestGetFromDatabase(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Success Test Using document",
+			name: `Success Test`,
 			args: args{
-				conn:      db,
-				dataType:  `CC`,
-				dataValue: `123456`,
+				document:     `123456`,
+				documentType: `CC`,
+				client:       &MockGetExternal{},
 			},
 			want:    true,
 			want1:   `some_name some_lastname`,
 			wantErr: false,
 		},
 		{
-			name: "Error Test Incorrect number of columns in response",
+			name: `Success Test - No Data`,
 			args: args{
-				conn:      db,
-				dataType:  `PHONE`,
-				dataValue: `3001234567`,
+				client: &MockGetExternal{},
+			},
+			want:    false,
+			want1:   ``,
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				documentType: `CC`,
+				client:       &MockGetExternal{},
+			},
+			want:    false,
+			want1:   ``,
+			wantErr: true,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				documentType: `CC`,
+				client:       &MockGetExternal{},
 			},
 			want:    false,
 			want1:   ``,
@@ -91,58 +259,76 @@ func TestGetFromDatabase(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := GetFromDatabase(tt.args.conn, tt.args.dataType, tt.args.dataValue)
+			got, got1, err := GetNameFromProvider(tt.args.documentType, tt.args.document, tt.args.client)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetFromDatabase() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetNameFromProvider() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("GetFromDatabase() got = %v, want %v", got, tt.want)
+				t.Errorf("GetNameFromProvider() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("GetFromDatabase() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("GetNameFromProvider() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
 }
 
-func TestGetFromProvider(t *testing.T) {
-	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
-	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
+func TestGetNameFromDatabase(t *testing.T) {
 	type args struct {
 		dataType  string
 		dataValue string
+		client    lambdaiface.LambdaAPI
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    bool
-		want1   string
-		wantErr bool
+		name      string
+		args      args
+		wantFound bool
+		wantName  string
+		wantErr   bool
 	}{
 		{
-			name: "Success Test Provider Response",
+			name: `Success Tests - Using CC`,
 			args: args{
 				dataType:  `CC`,
 				dataValue: `123456`,
+				client:    &MockGetDatabase{},
 			},
-			want:    true,
-			want1:   `some_full_name`,
-			wantErr: false,
+			wantFound: true,
+			wantName:  `some_fullname`,
+			wantErr:   false,
+		},
+		{
+			name: `Success Tests - Using PHONE`,
+			args: args{
+				dataType:  `PHONE`,
+				dataValue: `312345`,
+				client:    &MockGetDatabase{},
+			},
+			wantFound: true,
+			wantName:  `some_fullname`,
+			wantErr:   false,
+		},
+		{
+			name:      `Success Tests - No Data`,
+			args:      args{},
+			wantFound: false,
+			wantName:  ``,
+			wantErr:   false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := GetFromProvider(tt.args.dataType, tt.args.dataValue)
+			gotFound, gotName, err := GetNameFromDatabase(tt.args.dataType, tt.args.dataValue, tt.args.client)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetFromProvider() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetNameFromDatabase() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetFromProvider() got = %v, want %v", got, tt.want)
+			if gotFound != tt.wantFound {
+				t.Errorf("GetNameFromDatabase() gotFound = %v, want %v", gotFound, tt.wantFound)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("GetFromProvider() got1 = %v, want %v", got1, tt.want1)
+			if gotName != tt.wantName {
+				t.Errorf("GetNameFromDatabase() gotName = %v, want %v", gotName, tt.wantName)
 			}
 		})
 	}

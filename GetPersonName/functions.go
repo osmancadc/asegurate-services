@@ -1,89 +1,217 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	str "strings"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	invokeLambda "github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func ConnectDatabase() (connection *sql.DB, err error) {
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	database := os.Getenv("DB_NAME")
+var GetClient = func() lambdaiface.LambdaAPI {
+	region := os.Getenv(`REGION`)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{SharedConfigState: session.SharedConfigEnable}))
+	return invokeLambda.New(sess, &aws.Config{Region: aws.String(region)})
+}
 
-	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
-	if err != nil {
-		fmt.Printf(`Error conectando DB %s`, err.Error())
-		return nil, err
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
 	}
+	return
+}
+
+func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = http.StatusInternalServerError
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
 
 	return
 }
 
-func GetFromDatabase(conn *sql.DB, dataType, dataValue string) (bool, string, error) {
-	name := ``
+func SuccessMessage(name string) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
 
-	query := ``
+	response.StatusCode = http.StatusOK
+	response.Body = fmt.Sprintf(`{ "message": "success","name":"%s"}`, name)
 
-	if dataType == `CC` {
-		query = `SELECT CONCAT(name,' ',lastname) name FROM person p WHERE p.document = ?`
-	} else {
-		query = `SELECT CONCAT(name,' ',lastname) name FROM person p INNER JOIN user u ON p.document =u.document WHERE u.phone = ?`
+	return
+}
+
+func GetExternalInvokePayload(documentType, document string) (payload []byte) {
+	getNameBody, _ := json.Marshal(InvokeBody{
+		Action: `getPersonName`,
+		GetExternalBody: GetExternalBody{
+			Document:     document,
+			DocumentType: `CC`,
+		},
+	})
+
+	body := InvokePayload{
+		Body: string(getNameBody),
 	}
 
-	results, err := conn.Query(query, dataValue)
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func GetByDocumentInvokePayload(document string) (payload []byte) {
+	getUserBody, _ := json.Marshal(InvokeBody{
+		Action: `getNameByDocument`,
+		GetByDocument: GetByDocumentBody{
+			Document: document,
+		},
+	})
+
+	body := InvokePayload{
+		Body: string(getUserBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func GetByPhoneInvokePayload(phone string) (payload []byte) {
+	getUserBody, _ := json.Marshal(InvokeBody{
+		Action: `getNameByPhone`,
+		GetByPhone: GetByPhoneBody{
+			Phone: phone,
+		},
+	})
+
+	body := InvokePayload{
+		Body: string(getUserBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func GetNameByPhone(phone string, client lambdaiface.LambdaAPI) (name string, err error) {
+	response := InvokeResponse{}
+	responseBody := ResponseBody{}
+	messageBody := MessageBody{}
+
+	payload := GetByPhoneInvokePayload(phone)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`GetFromDatabase(1): %s`, err.Error())
-		return false, "", err
+		fmt.Printf(`GetNameByPhone(1): %s`, err.Error())
+		return
 	}
 
-	if results.Next() {
-		err = results.Scan(&name)
+	json.Unmarshal(result.Payload, &response)
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`GetNameByPhone(2): %s`, response.Body)
+		json.Unmarshal([]byte(bodyString), &messageBody)
+		err = errors.New(messageBody.Message)
+		return
+	}
+
+	json.Unmarshal([]byte(bodyString), &responseBody)
+	name = responseBody.Fullname
+
+	return
+}
+
+func GetNameByDocument(document string, client lambdaiface.LambdaAPI) (name string, err error) {
+	response := InvokeResponse{}
+	responseBody := ResponseBody{}
+	messageBody := MessageBody{}
+
+	payload := GetByDocumentInvokePayload(document)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
+	if err != nil {
+		fmt.Printf(`GetNameByDocument(1): %s`, err.Error())
+		return
+	}
+
+	json.Unmarshal(result.Payload, &response)
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`GetNameByDocument(2): %s`, response.Body)
+		json.Unmarshal([]byte(bodyString), &messageBody)
+		err = errors.New(messageBody.Message)
+		return
+	}
+
+	json.Unmarshal([]byte(bodyString), &responseBody)
+	name = responseBody.Fullname
+
+	return
+}
+
+func GetNameFromDatabase(dataType, dataValue string, client lambdaiface.LambdaAPI) (found bool, name string, err error) {
+	if dataType == `CC` {
+		name, err = GetNameByDocument(dataValue, client)
 		if err != nil {
-			fmt.Printf(`GetFromDatabase(2): %s`, err.Error())
-			return false, "", err
+			fmt.Printf(`GetNameFromDatabase(1): %s`, err.Error())
+			return
 		}
-		return true, name, nil
+		found = true
+		return
+	} else if dataType == `PHONE` {
+		name, err = GetNameByPhone(dataValue, client)
+		if err != nil {
+			fmt.Printf(`GetNameFromDatabase(2): %s`, err.Error())
+			return
+		}
+		found = true
+		return
 	}
 
 	return false, "", nil
 }
 
-func GetFromProvider(dataType, dataValue string) (bool, string, error) {
-	if dataType == `CC` {
-		url := fmt.Sprintf(`%s/cedula?documentType=CC&documentNumber=%s`, os.Getenv("DATA_URL"), dataValue)
-		bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
+func GetNameFromProvider(documentType, document string, client lambdaiface.LambdaAPI) (bool, string, error) {
+	if documentType == `CC` {
+		response := InvokeResponse{}
+		externalBody := ExternalResponseBody{}
+		messageBody := MessageBody{}
 
-		request, err := http.NewRequest("GET", url, nil)
+		payload := GetExternalInvokePayload(documentType, document)
+
+		result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("ExternalData"), Payload: payload})
 		if err != nil {
-			fmt.Printf(`GetFromProvider(1) %s`, err.Error())
-			return false, "", err
-		}
-		request.Header.Add(`Authorization`, bearer)
-
-		client := &http.Client{}
-		result, err := client.Do(request)
-		if err != nil {
-			fmt.Printf(`GetFromProvider(2) %s`, err.Error())
-			return false, "", err
-		}
-		defer result.Body.Close()
-
-		data := &Person{}
-
-		err = json.NewDecoder(result.Body).Decode(data)
-		if err != nil {
-			fmt.Printf(`GetFromProvider(3) %s`, err.Error())
-			return false, "", err
+			fmt.Printf(`GetFromProvider(1): %s`, err.Error())
+			return false, ``, err
 		}
 
-		return true, data.Data.FullName, nil
+		json.Unmarshal(result.Payload, &response)
+		bodyString := str.Replace(string(response.Body), `\`, ``, -1)
 
+		if response.StatusCode != 200 {
+			fmt.Printf(`GetFromProvider(2): %s`, response.Body)
+			json.Unmarshal([]byte(bodyString), &messageBody)
+			return false, ``, errors.New(messageBody.Message)
+		}
+
+		json.Unmarshal([]byte(bodyString), &externalBody)
+
+		name := fmt.Sprintf("%s %s", externalBody.Name, externalBody.Lastname)
+
+		return true, name, nil
 	}
+
 	return false, ``, nil
 }

@@ -53,7 +53,7 @@ func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatew
 		return response, nil
 	}
 
-	response.Body = fmt.Sprintf(`{"message":"User authenticated","token":"%s"}`, token)
+	response.Body = fmt.Sprintf(`{"message":"User authenticated","token":"%s","expiresIn":3600}`, token)
 	response.StatusCode = http.StatusOK
 	return response, nil
 

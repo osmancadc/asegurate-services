@@ -1045,3 +1045,183 @@ func TestGetAccountData(t *testing.T) {
 		})
 	}
 }
+
+func TestGetNameByPhone(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`name`, `lastname`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`31234444`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_lastname`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`3123456`).
+		WillReturnRows(sqlmock.NewRows(columns))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`000`).
+		WillReturnError(errors.New(`some_error`))
+
+	type args struct {
+		conn *gorm.DB
+		body GetByPhoneBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `31234444`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"fullname":"some_name some_lastname"}`,
+			},
+		},
+		{
+			name: `Error Test - No User Found`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `3123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"no user found"}`,
+			},
+		},
+		{
+			name: `Error Test - Database Error`,
+			args: args{
+				conn: db,
+				body: GetByPhoneBody{
+					Phone: `000`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some_error"}`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := GetNameByPhone(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNameByPhone() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("GetNameByPhone() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestGetNameByDocument(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`name`, `lastname`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_lastname`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`654321`).
+		WillReturnRows(sqlmock.NewRows(columns))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`0000`).
+		WillReturnError(errors.New(`some_error`))
+
+	type args struct {
+		conn *gorm.DB
+		body GetByDocumentBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"fullname":"some_name some_lastname"}`,
+			},
+		},
+		{
+			name: `Error Test - No Person Found`,
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `654321`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"no person found"}`,
+			},
+		},
+		{
+			name: `Error Test - Database Error`,
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `0000`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some_error"}`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := GetNameByDocument(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNameByDocument() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("GetNameByDocument() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}

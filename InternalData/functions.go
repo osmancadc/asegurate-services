@@ -251,3 +251,46 @@ func InsertScore(conn *gorm.DB, body ScoreBody) (response events.APIGatewayProxy
 
 	return SuccessMessage(`Score uploaded successfully`)
 }
+
+func GetNameByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
+	person := Person{}
+	result := conn.Model(&Person{}).Select("name, lastname").
+		Joins("inner join user on person.document = user.document").
+		Where(`user.phone = ?`, body.Phone).
+		Scan(&person)
+	if result.Error != nil {
+		fmt.Printf(`GetNameByPhone(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		fmt.Printf(`GetNameByPhone(2): No user found`)
+		return ErrorMessage(errors.New(`no user found`))
+	}
+
+	response = SetResponseHeaders()
+	response.StatusCode = 200
+	response.Body = fmt.Sprintf(`{"fullname":"%s %s"}`, person.Name, person.Lastname)
+	return
+}
+
+func GetNameByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	person := Person{}
+	result := conn.Model(&Person{}).Select("name, lastname").
+		Where(`document = ?`, body.Document).
+		Scan(&person)
+	if result.Error != nil {
+		fmt.Printf(`GetNameByDocument(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		fmt.Printf(`GetNameByDocument(2): No person found`)
+		return ErrorMessage(errors.New(`no person found`))
+	}
+
+	response = SetResponseHeaders()
+	response.StatusCode = 200
+	response.Body = fmt.Sprintf(`{"fullname":"%s %s"}`, person.Name, person.Lastname)
+	return
+}

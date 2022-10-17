@@ -491,7 +491,7 @@ func TestGetUserByPhone(t *testing.T) {
 	}
 }
 
-func TestGetUserByDocument(t *testing.T) {
+func TestCheckUserByDocument(t *testing.T) {
 	pool, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -568,14 +568,14 @@ func TestGetUserByDocument(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResponse, err := GetUserByDocument(tt.args.conn, tt.args.body)
+			gotResponse, err := CheckUserByDocument(tt.args.conn, tt.args.body)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetUserByDocument() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CheckUserByDocument() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
 				gotResponse.Body != tt.wantResponse.Body {
-				t.Errorf("GetUserByDocument() = %v, want %v", gotResponse, tt.wantResponse)
+				t.Errorf("CheckUserByDocument() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}
@@ -947,6 +947,100 @@ func TestUpdatePerson(t *testing.T) {
 			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
 				gotResponse.Body != tt.wantResponse.Body {
 				t.Errorf("UpdatePerson() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestGetAccountData(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	columns := []string{`col1`, `col2`, `col3`, `col4`, `col5`}
+	columns_error := []string{`col1`}
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_email`, `some_phone`, `some_photo`, `some_gender`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`some_name`))
+
+	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
+		WithArgs(`123456`).
+		WillReturnError(errors.New(`some_error`))
+
+	type args struct {
+		conn *gorm.DB
+		body GetByDocumentBody
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"name":"some_name","email":"some_email","phone":"some_phone","photo":"some_photo","gender":"some_gender"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Wrong Number Of columns`,
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"sql: expected 1 destination arguments in Scan, not 5"}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Database Error`,
+			args: args{
+				conn: db,
+				body: GetByDocumentBody{
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some_error"}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := GetAccountData(tt.args.conn, tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAccountData() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("GetAccountData() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}

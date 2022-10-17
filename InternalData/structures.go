@@ -33,6 +33,16 @@ type GetByDocumentBody struct {
 	Document string `json:"document"`
 }
 
+type Account struct {
+	Name     string `json:"name,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
+	Photo    string `json:"photo,omitempty"`
+	Gender   string `json:"gender,omitempty"`
+	Document string `json:"document"`
+	Role     string `json:"role,omitempty"`
+}
+
 // Database Models
 
 type User struct {

@@ -24,6 +24,6 @@ type RequestGetName struct {
 
 type RequestBody struct {
 	Action   string         `json:"action"`
-	DataBody RequestGetData `json:"get_data,omitempty"`
-	NameBody RequestGetName `json:"get_name,omitempty"`
+	DataBody RequestGetData `json:"data_body,omitempty"`
+	NameBody RequestGetName `json:"name_body,omitempty"`
 }

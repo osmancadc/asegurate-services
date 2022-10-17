@@ -1,32 +1,49 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
-
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 )
+
+var mainTestNumber = 1
+
+// InsertUser Mock
+type MockMain struct {
+	lambdaiface.LambdaAPI
+}
+
+func (mlc *MockMain) Invoke(input *lambda.InvokeInput) (*lambda.InvokeOutput, error) {
+
+	var payload []byte
+	var err error
+
+	switch mainTestNumber {
+	case 1:
+		payload, _ = json.Marshal(InvokeResponse{
+			StatusCode: 200,
+			Body:       `{"name":"some_name","email":"some_email","phone":"some_phone","photo":"some_photo","gender":"some_gender"}`,
+		})
+		err = nil
+		mainTestNumber += 1
+
+	}
+
+	return &lambda.InvokeOutput{
+		Payload: payload,
+	}, err
+}
 
 func TestHandlerGetUserData(t *testing.T) {
 
-	OldConnectDatabase := ConnectDatabase
-	defer func() { ConnectDatabase = OldConnectDatabase }()
+	OldGetClient := GetClient
+	defer func() { GetClient = OldGetClient }()
 
-	ConnectDatabase = func() (connection *sql.DB, err error) {
-		db, mock, err := sqlmock.New()
-		if err != nil {
-			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-		}
-
-		columns := []string{`name`, `email`, `phone`, `photo`, `gender`}
-
-		mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-			WithArgs(`123456`).
-			WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_full_name`, `some@email.com`, `300123456`, `http://photo.png`, `male`))
-
-		return db, nil
+	GetClient = func() lambdaiface.LambdaAPI {
+		return &MockMain{}
 	}
 
 	pathParameter := make(map[string]string)

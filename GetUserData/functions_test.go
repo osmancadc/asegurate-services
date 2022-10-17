@@ -1,57 +1,60 @@
 package main
 
 import (
-	"database/sql"
-	"os"
+	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func TestConnectDatabase(t *testing.T) {
-	os.Setenv(`DB_USER`, `root`)
-	os.Setenv(`DB_PASSWORD`, `1234`)
-	os.Setenv(`DB_HOST`, `dbhost`)
-	os.Setenv(`DB_NAME`, `dbname`)
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "Success Test",
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := ConnectDatabase()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ConnectDatabase() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+var getUserDataTestNumber = 1
 
+// InsertUser Mock
+type MockGetUserData struct {
+	lambdaiface.LambdaAPI
+}
+
+func (mlc *MockGetUserData) Invoke(input *lambda.InvokeInput) (*lambda.InvokeOutput, error) {
+
+	var payload []byte
+	var err error
+
+	switch getUserDataTestNumber {
+	case 1:
+		payload, _ = json.Marshal(InvokeResponse{
+			StatusCode: 200,
+			Body:       `{"name":"some_name","email":"some_email","phone":"some_phone","photo":"some_photo","gender":"some_gender"}`,
 		})
+		err = nil
+		getUserDataTestNumber += 1
+	case 2:
+		payload, _ = json.Marshal(InvokeResponse{
+			StatusCode: 200,
+		})
+		err = errors.New(`some_error`)
+		getUserDataTestNumber += 1
+	case 3:
+		payload, _ = json.Marshal(InvokeResponse{
+			StatusCode: 500,
+		})
+		err = nil
+		getUserDataTestNumber += 1
 	}
+
+	return &lambda.InvokeOutput{
+		Payload: payload,
+	}, err
 }
 
 func TestGetUserData(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`name`, `email`, `phone`, `photo`, `gender`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_full_name`, `some@email.com`, `300123456`, `http://photo.png`, `male`))
-
 	type args struct {
 		document string
-		conn     *sql.DB
+		client   lambdaiface.LambdaAPI
 	}
 	tests := []struct {
 		name    string
@@ -60,30 +63,126 @@ func TestGetUserData(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: `Success Test`,
+			name: `Success Tests `,
 			args: args{
 				document: `123456`,
-				conn:     db,
+				client:   &MockGetUserData{},
 			},
 			want: User{
-				Name:     `some_full_name`,
 				Document: `123456`,
-				Email:    `some@email.com`,
-				Phone:    `300123456`,
-				Photo:    `http://photo.png`,
-				Gender:   `male`,
+				Name:     `some_name`,
+				Email:    `some_email`,
+				Phone:    `some_phone`,
+				Photo:    `some_photo`,
+				Gender:   `some_gender`,
 			},
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockGetUserData{},
+			},
+			want:    User{},
+			wantErr: true,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				client: &MockGetUserData{},
+			},
+			want:    User{},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetUserData(tt.args.document, tt.args.conn)
+			got, err := GetUserData(tt.args.document, tt.args.client)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetUserData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetUserData() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetClient(t *testing.T) {
+	tests := []struct {
+		name string
+		want lambdaiface.LambdaAPI
+	}{
+		{
+			name: `Single test`,
+			want: &lambda.Lambda{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			GetClient()
+		})
+	}
+}
+
+func TestSetResponseHeaders(t *testing.T) {
+	tests := []struct {
+		name         string
+		wantResponse events.APIGatewayProxyResponse
+	}{
+		{
+			name: `Success Test`,
+			wantResponse: events.APIGatewayProxyResponse{
+				Headers: map[string]string{
+					"Content-Type":                 "application/json",
+					"Access-Control-Allow-Origin":  "*",
+					"Access-Control-Allow-Methods": "POST",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotResponse := SetResponseHeaders(); !reflect.DeepEqual(gotResponse, tt.wantResponse) {
+				t.Errorf("SetResponseHeaders() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}
+
+func TestErrorMessage(t *testing.T) {
+	type args struct {
+		functionError error
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: "Success Test",
+			args: args{
+				functionError: errors.New(`some error`),
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some error"}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := ErrorMessage(tt.args.functionError)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ErrorMessage() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("ErrorMessage() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}

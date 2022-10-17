@@ -1,48 +1,86 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	str "strings"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	invokeLambda "github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var ConnectDatabase = func() (connection *sql.DB, err error) {
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	database := os.Getenv("DB_NAME")
+var GetClient = func() lambdaiface.LambdaAPI {
+	region := os.Getenv(`REGION`)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{SharedConfigState: session.SharedConfigEnable}))
+	return invokeLambda.New(sess, &aws.Config{Region: aws.String(region)})
+}
 
-	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
-	if err != nil {
-		fmt.Printf(`Error conectando DB %s`, err.Error())
-		return nil, err
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
 	}
+	return
+}
+
+func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = http.StatusInternalServerError
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
 
 	return
 }
 
-func GetUserData(document string, conn *sql.DB) (User, error) {
+func GetUserDataInvokePayload(document string) (payload []byte) {
+	getUserBody, _ := json.Marshal(InvokeBody{
+		Action: `getAccountdata`,
+		GetUserData: GetByDocumentBody{
+			Document: document,
+		}})
+
+	body := InvokePayload{
+		Body: string(getUserBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func GetUserData(document string, client lambdaiface.LambdaAPI) (User, error) {
 	user := User{
 		Document: document,
 	}
 
-	results, err := conn.Query(`SELECT CONCAT(name,' ',lastname) name, email, phone, photo, gender FROM person p 
-								INNER JOIN user u ON p.document = u.document
-								WHERE p.document = ?`, document)
+	payload := GetUserDataInvokePayload(document)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`GetStoredScore(1): %s`, err.Error())
+		fmt.Printf(`GetUserData(1): %s`, err.Error())
 		return user, err
 	}
 
-	if results.Next() {
-		err = results.Scan(&user.Name, &user.Email, &user.Phone, &user.Photo, &user.Gender)
-		if err != nil {
-			fmt.Printf(`GetStoredScore(2): %s`, err.Error())
-			return user, err
-		}
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`GetUserData(2): %s`, response.Body)
+		return user, errors.New(`error obteniendo datos, intentalo de nuevo`)
 	}
+
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+	json.Unmarshal([]byte(bodyString), &user)
 
 	return user, nil
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -11,37 +10,21 @@ import (
 
 func HandlerGetUserData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
-
 	document := req.PathParameters["document"]
 
-	conn, err := ConnectDatabase()
-	if err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-	defer conn.Close()
+	client := GetClient()
 
-	user, err := GetUserData(document, conn)
+	user, err := GetUserData(document, client)
 	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 
 	userJson, err := json.Marshal(user)
 	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 
+	response := SetResponseHeaders()
 	response.Body = string(userJson)
 	response.StatusCode = http.StatusOK
 	return response, nil

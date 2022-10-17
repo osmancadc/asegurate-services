@@ -17,7 +17,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var GetClient = func() lambdaiface.LambdaAPI {
+func GetClient() lambdaiface.LambdaAPI {
 	region := os.Getenv(`REGION`)
 	sess := session.Must(session.NewSessionWithOptions(session.Options{SharedConfigState: session.SharedConfigEnable}))
 	return invokeLambda.New(sess, &aws.Config{Region: aws.String(region)})

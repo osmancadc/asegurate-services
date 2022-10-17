@@ -11,14 +11,7 @@ import (
 
 func HandlerCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
-
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
-	}
+	response := SetResponseHeaders()
 
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
@@ -26,25 +19,24 @@ func HandlerCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProx
 		return response, nil
 	}
 
-	conn, err := ConnectDatabase()
-	if err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-	defer conn.Close()
+	client := GetClient()
 
-	name, err := InsertPerson(conn, reqBody.Document, reqBody.ExpeditionDate)
+	name, err := InsertPerson(reqBody.Document, reqBody.ExpeditionDate, client)
 	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 
-	err = InsertUser(conn, reqBody.Email, reqBody.Phone, reqBody.Password, reqBody.Document, reqBody.Role)
+	user := UserBody{
+		Document: reqBody.Document,
+		Email:    reqBody.Email,
+		Phone:    reqBody.Phone,
+		Password: reqBody.Password,
+		Role:     reqBody.Role,
+	}
+
+	err = InsertUser(user, client)
 	if err != nil {
-		response.Body = fmt.Sprintf(`{ "message": "%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err)
 	}
 
 	response.Body = fmt.Sprintf(`{ "message": "user created successfully","name":"%s"}`, name)

@@ -1,136 +1,359 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	str "strings"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	invokeLambda "github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var ConnectDatabase = func() (connection *sql.DB, err error) {
+var GetClient = func() lambdaiface.LambdaAPI {
+	region := os.Getenv(`REGION`)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{SharedConfigState: session.SharedConfigEnable}))
+	return invokeLambda.New(sess, &aws.Config{Region: aws.String(region)})
+}
 
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	database := os.Getenv("DB_NAME")
-
-	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
-	if err != nil {
-		fmt.Printf("ConnectDatabase(1) %s", err.Error())
-		return nil, err
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
 	}
+	return
+}
+
+func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = http.StatusInternalServerError
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
 
 	return
 }
 
-func CheckExistingUser(conn *sql.DB, document string) (exists bool, err error) {
-	results, err := conn.Query(`SELECT user_id FROM user WHERE document =  ?`, document)
-	if err != nil {
-		fmt.Printf(`CheckExistingUser(1): %s`, err.Error())
-		return
+func GetInvokePayload(document, action string) (payload []byte) {
+
+	findPersonBody, _ := json.Marshal(InvokeBody{Action: action, FindPerson: FindByDocumentBody{Document: document}})
+
+	body := InvokePayload{
+		Body: string(findPersonBody),
 	}
 
-	if results.Next() {
-		fmt.Printf("CheckExistingUser(2) el usuario ya existe")
-		exists = true
-		return
-	}
+	payload, _ = json.Marshal(body)
 
 	return
 }
 
-func CheckExistingPerson(conn *sql.DB, document string) (name string, exists bool, err error) {
-	results, err := conn.Query(`SELECT name FROM person p WHERE p.document = ?`, document)
+func ExternalDataInvokePayload(document, expeditionDate string) (payload []byte) {
+	findPersonBody, _ := json.Marshal(InvokeBody{
+		Action: `getPersonData`,
+		FindPerson: FindByDocumentBody{
+			Document:       document,
+			ExpeditionDate: expeditionDate,
+		}})
+
+	body := InvokePayload{
+		Body: string(findPersonBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func SavePersonInvokePayload(personData PersonData, document string) (payload []byte) {
+	gender := `female`
+
+	if personData.Gender == `HOMBRE` {
+		gender = `male`
+	}
+
+	savePersonBody, _ := json.Marshal(InvokeBody{
+		Action: `insertPerson`,
+		Person: PersonBody{
+			Document: document,
+			Name:     personData.Name,
+			Lastname: personData.Lastname,
+			Gender:   gender,
+		}})
+
+	body := InvokePayload{
+		Body: string(savePersonBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func UpdateGenderInvokePayload(gender, document string) (payload []byte) {
+
+	if gender == `HOMBRE` {
+		gender = `male`
+	} else {
+		gender = `female`
+	}
+
+	updatePersonBody, _ := json.Marshal(InvokeBody{
+		Action: `updatePerson`,
+		Person: PersonBody{
+			Document: document,
+			Gender:   gender,
+		}})
+
+	body := InvokePayload{
+		Body: string(updatePersonBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func SaveUserInvokePayload(user UserBody) (payload []byte) {
+
+	saveUserBody, _ := json.Marshal(InvokeBody{
+		Action: `insertUser`,
+		User:   user,
+	})
+
+	body := InvokePayload{
+		Body: string(saveUserBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func CheckExistingPerson(document string, client lambdaiface.LambdaAPI) (name string, exists bool, needsUpdate bool, err error) {
+	payload := GetInvokePayload(document, `getPersonByDocument`)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
 		fmt.Printf(`CheckExistingPerson(1): %s`, err.Error())
 		return
 	}
 
-	if results.Next() {
-		fmt.Printf("CheckExistingPerson(2) la persona ya existe")
-		err = results.Scan(&name)
-		if err != nil {
-			fmt.Printf(`CheckExistingPerson(3): %s`, err.Error())
-			return
-		}
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`CheckExistingPerson(2): %s`, response.Body)
+		return
+	}
+
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+	personData := PersonData{}
+	json.Unmarshal([]byte(bodyString), &personData)
+
+	if personData.Name != `not_found` {
 		exists = true
+		name = personData.Name
+		if personData.Gender == `` {
+			needsUpdate = true
+		}
+	}
+
+	return
+}
+
+func GetPersonData(document, expeditionDate string, client lambdaiface.LambdaAPI) (personData PersonData, err error) {
+	payload := ExternalDataInvokePayload(document, expeditionDate)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("ExternalData"), Payload: payload})
+	if err != nil {
+		fmt.Printf(`GetPersonData(1): %s`, err.Error())
+		return
+	}
+
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`GetPersonData(2): %s`, response.Body)
+		return
+	}
+
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+	json.Unmarshal([]byte(bodyString), &personData)
+
+	return
+}
+
+func SavePerson(personData PersonData, document string, client lambdaiface.LambdaAPI) (err error) {
+	payload := SavePersonInvokePayload(personData, document)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
+	if err != nil {
+		fmt.Printf(`SavePerson(1): %s`, err.Error())
+		return
+	}
+
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		responseMessage := ResponseMesssage{}
+		bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+		json.Unmarshal([]byte(bodyString), &responseMessage)
+
+		fmt.Printf(`SavePerson(2): %s`, responseMessage.Message)
+		err = errors.New(responseMessage.Message)
 		return
 	}
 
 	return
 }
 
-func GetPersonData(document, expirationDate string) (PersonData, error) {
-	person := &Person{
-		Data: PersonData{
-			IsAlive: false,
-		},
-	}
+func UpdateGender(gender, document string, client lambdaiface.LambdaAPI) (err error) {
+	payload := UpdateGenderInvokePayload(gender, document)
 
-	url := fmt.Sprintf(`%s/cedula/extra?documentType=CC&documentNumber=%s&date=%s`, os.Getenv("DATA_URL"), document, expirationDate)
-	bearer := "Bearer " + os.Getenv("AUTHORIZATION_TOKEN")
-
-	request, err := http.NewRequest("GET", url, nil)
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`GetPersonName(1) %s`, err.Error())
-		return person.Data, err
-	}
-	request.Header.Add(`Authorization`, bearer)
-
-	client := &http.Client{}
-	result, err := client.Do(request)
-	if err != nil {
-		fmt.Printf(`GetPersonName(2) %s`, err.Error())
-		return person.Data, err
-	}
-	defer result.Body.Close()
-
-	err = json.NewDecoder(result.Body).Decode(person)
-	if err != nil {
-		fmt.Printf(`GetPersonName(3) %s`, err.Error())
-		return person.Data, err
+		fmt.Printf(`UpdateGender(1): %s`, err.Error())
+		return
 	}
 
-	return person.Data, nil
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		responseMessage := ResponseMesssage{}
+		bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+		json.Unmarshal([]byte(bodyString), &responseMessage)
+
+		fmt.Printf(`UpdateGender(2): %s`, responseMessage.Message)
+		err = errors.New(responseMessage.Message)
+		return
+	}
+
+	return
 }
 
-func InsertPerson(conn *sql.DB, document, expeditionDate string) (name string, err error) {
+func ValidatePersonData(personData PersonData, auxErr error) (err error) {
+	if auxErr != nil {
+		err = auxErr
+		fmt.Printf(`ValidatePersonData(1): %s`, err.Error())
+		return
+	}
 
-	name, exists, err := CheckExistingPerson(conn, document)
+	if personData.Name == `` {
+		fmt.Printf(`ValidatePersonData(2): Person not found`)
+		err = errors.New(`no se encontro a la persona, intenta nuevamente`)
+		return
+	}
+
+	if !personData.IsAlive {
+		fmt.Printf(`ValidatePersonData(3): Person is dead`)
+		err = errors.New(`el documento es de una persona fallecida`)
+		return
+	}
+
+	return
+}
+
+func InsertPerson(document, expeditionDate string, client lambdaiface.LambdaAPI) (name string, err error) {
+	name, exists, needsUpdate, err := CheckExistingPerson(document, client)
 	if err != nil {
 		fmt.Printf(`InsertPerson(1): %s`, err.Error())
 		return
 	}
-
-	if exists {
+	if exists && !needsUpdate {
 		fmt.Println(`InsertPerson(2): Person already exists`)
 		return
 	}
 
-	personData, err := GetPersonData(document, expeditionDate)
+	personData, err := GetPersonData(document, expeditionDate, client)
+	err = ValidatePersonData(personData, err)
 	if err != nil {
 		fmt.Printf(`InsertPerson(3): %s`, err.Error())
 		return
 	}
-	query, err := conn.Prepare(`INSERT INTO person (document, name, lastname, score, stars, reputation, last_update) VALUES(?, ?, ?, 50, 0, 50, CURRENT_TIMESTAMP)`)
+
+	if needsUpdate {
+		err = UpdateGender(personData.Gender, document, client)
+		if err != nil {
+			fmt.Printf(`InsertPerson(4): %s`, err.Error())
+			return
+		}
+	} else {
+		err = SavePerson(personData, document, client)
+		if err != nil {
+			fmt.Printf(`InsertPerson(4): %s`, err.Error())
+			return
+		}
+
+	}
+
+	return personData.Name, nil
+}
+
+func CheckExistingUser(document string, client lambdaiface.LambdaAPI) (exists bool, err error) {
+	payload := GetInvokePayload(document, `getUserByDocument`)
+	response := InvokeResponse{}
+	responseMesssage := ResponseMesssage{}
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf("InsertPerson(5) %s", err.Error())
+		fmt.Printf(`CheckExistingUser(1): %s`, err.Error())
 		return
 	}
 
-	query.Exec(document, personData.Name, personData.Lastname)
-	name = personData.Name
+	json.Unmarshal(result.Payload, &response)
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+	json.Unmarshal([]byte(bodyString), &responseMesssage)
+
+	if response.StatusCode != 200 {
+		err = errors.New(responseMesssage.Message)
+		fmt.Printf(`CheckExistingUser(2): %s`, response.Body)
+		return
+	}
+
+	exists = (responseMesssage.Message == `user already exists`)
+	return
+}
+
+func SaveUser(user UserBody, client lambdaiface.LambdaAPI) (err error) {
+	payload := SaveUserInvokePayload(user)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
+	if err != nil {
+		fmt.Printf(`SaveUser(1): %s`, err.Error())
+		return
+	}
+
+	response := InvokeResponse{}
+	json.Unmarshal(result.Payload, &response)
+
+	if response.StatusCode != 200 {
+		responseMessage := ResponseMesssage{}
+		bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+		json.Unmarshal([]byte(bodyString), &responseMessage)
+
+		fmt.Printf(`SaveUser(2): %s`, responseMessage.Message)
+		err = errors.New(responseMessage.Message)
+		return
+	}
 
 	return
 }
 
-func InsertUser(conn *sql.DB, email, phone, password, document, role string) (err error) {
+func InsertUser(user UserBody, client lambdaiface.LambdaAPI) (err error) {
 
-	exists, err := CheckExistingUser(conn, document)
+	exists, err := CheckExistingUser(user.Document, client)
 	if err != nil {
 		fmt.Printf(`InsertUser(1): %s`, err.Error())
 		return
@@ -142,13 +365,7 @@ func InsertUser(conn *sql.DB, email, phone, password, document, role string) (er
 		return
 	}
 
-	query, err := conn.Prepare(`INSERT INTO user (email, phone, password, document, role) VALUES (?, ?, ?, ?, ?)`)
-	if err != nil {
-		fmt.Printf("InsertUser(3) %s", err.Error())
-		return
-	}
-
-	query.Exec(email, phone, password, document, role)
+	err = SaveUser(user, client)
 
 	return
 }

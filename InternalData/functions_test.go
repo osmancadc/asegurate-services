@@ -789,7 +789,7 @@ func TestInsertPerson(t *testing.T) {
 	//First test mock
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO  (.+)`).
-		WithArgs(`123456`, `some_name`, `some_lastname`, `some_gender`, 0, 0, ``).
+		WithArgs(`123456`, `some_name`, `some_lastname`, `some_gender`, ``).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -873,7 +873,7 @@ func TestUpdatePerson(t *testing.T) {
 	//Second test mock
 	mock.ExpectBegin()
 	mock.ExpectExec(`UPDATE (.+)`).
-		WithArgs(50, `123456`).
+		WithArgs(`some_photo`, `123456`).
 		WillReturnResult(sqlmock.NewResult(1, 0))
 	mock.ExpectCommit()
 
@@ -913,7 +913,7 @@ func TestUpdatePerson(t *testing.T) {
 			args: args{
 				conn: db,
 				person: Person{
-					Score:    50,
+					Photo:    `some_photo`,
 					Document: `123456`,
 				},
 			},

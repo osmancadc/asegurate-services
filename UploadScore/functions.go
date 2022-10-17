@@ -56,7 +56,7 @@ func GetUploadInvokePayload(data RequestBody) (payload []byte) {
 func GetFindUserInvokePayload(data RequestBody) (payload []byte) {
 	uploadBody, _ := json.Marshal(
 		InvokeBody{
-			Action: `getByPhone`,
+			Action: `getUserByPhone`,
 			FindByPhoneData: FindByPhoneBody{
 				Phone: data.Objective,
 			},
@@ -73,12 +73,8 @@ func GetFindUserInvokePayload(data RequestBody) (payload []byte) {
 }
 
 func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
-
 	payload := GetUploadInvokePayload(data)
-	if err != nil {
-		fmt.Printf(`UploadScore(1): %s`, err.Error())
-		return err
-	}
+	response := InvokeResponse{}
 
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
@@ -86,9 +82,7 @@ func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
 		return err
 	}
 
-	response := InvokeResponse{}
 	json.Unmarshal(result.Payload, &response)
-
 	if response.StatusCode != 200 {
 		fmt.Printf(`UploadScore(3): %s`, response.Body)
 		return errors.New(response.Body)
@@ -100,6 +94,8 @@ func UploadScore(data RequestBody, client lambdaiface.LambdaAPI) (err error) {
 func FindUserByPhone(data RequestBody, client lambdaiface.LambdaAPI) (request RequestBody, err error) {
 
 	payload := GetFindUserInvokePayload(data)
+	response := InvokeResponse{}
+	userByPhone := FindByPhoneResponseBody{}
 
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
@@ -107,15 +103,12 @@ func FindUserByPhone(data RequestBody, client lambdaiface.LambdaAPI) (request Re
 		return
 	}
 
-	response := InvokeResponse{}
 	json.Unmarshal(result.Payload, &response)
 
 	if response.StatusCode != 200 {
 		fmt.Printf(`FindUserByPhone(2): %s`, response.Body)
 		return
 	}
-
-	userByPhone := FindByPhoneResponseBody{}
 
 	err = json.Unmarshal([]byte(response.Body), &userByPhone)
 

@@ -33,12 +33,14 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
 	case `getPersonByDocument`:
 		return GetPersonByDocument(conn, reqBody.GetByDocumentBody)
-	case `getUserByDocument`:
-		return GetUserByDocument(conn, reqBody.GetByDocumentBody)
+	case `checkUserByDocument`:
+		return CheckUserByDocument(conn, reqBody.GetByDocumentBody)
 	case `insertUser`:
 		return InsertUser(conn, reqBody.UserBody)
 	case `insertPerson`:
 		return InsertPerson(conn, reqBody.PersonBody)
+	case `getAccountdata`:
+		return GetAccountData(conn, reqBody.GetByDocumentBody)
 	}
 
 	response := SetResponseHeaders()

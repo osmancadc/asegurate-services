@@ -45,6 +45,8 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 		return GetNameByPhone(conn, reqBody.GetByPhoneBody)
 	case `getNameByDocument`:
 		return GetNameByDocument(conn, reqBody.GetByDocumentBody)
+	case `getDocumentByPhone`:
+		return GetDocumentByPhone(conn, reqBody.GetByPhoneBody)
 	}
 
 	response := SetResponseHeaders()

@@ -40,11 +40,17 @@ type UserBody struct {
 	Role     string `json:"role"`
 }
 
+type DataBody struct {
+	Document       string `json:"document"`
+	ExpeditionDate string `json:"expedition_date"`
+}
+
 type InvokeBody struct {
-	Action     string             `json:"action"`
-	FindPerson FindByDocumentBody `json:"get_by_document_body,omitempty"`
-	Person     PersonBody         `json:"person_body,omitempty"`
-	User       UserBody           `json:"user_body,omitempty"`
+	Action        string             `json:"action"`
+	FindPerson    FindByDocumentBody `json:"get_by_document_body,omitempty"`
+	Person        PersonBody         `json:"person_body,omitempty"`
+	User          UserBody           `json:"user_body,omitempty"`
+	GetPersonData DataBody           `json:"data_body,omitempty"`
 }
 
 type InvokePayload struct {

@@ -59,7 +59,7 @@ func GetInvokePayload(document, action string) (payload []byte) {
 func ExternalDataInvokePayload(document, expeditionDate string) (payload []byte) {
 	findPersonBody, _ := json.Marshal(InvokeBody{
 		Action: `getPersonData`,
-		FindPerson: FindByDocumentBody{
+		GetPersonData: DataBody{
 			Document:       document,
 			ExpeditionDate: expeditionDate,
 		}})
@@ -172,6 +172,9 @@ func CheckExistingPerson(document string, client lambdaiface.LambdaAPI) (name st
 
 func GetPersonData(document, expeditionDate string, client lambdaiface.LambdaAPI) (personData PersonData, err error) {
 	payload := ExternalDataInvokePayload(document, expeditionDate)
+
+	some := string(payload)
+	fmt.Println(some)
 
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("ExternalData"), Payload: payload})
 	if err != nil {

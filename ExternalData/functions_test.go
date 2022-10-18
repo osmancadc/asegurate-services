@@ -10,32 +10,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func TestConnectDatabase(t *testing.T) {
-	os.Setenv(`DB_USER`, `root`)
-	os.Setenv(`DB_PASSWORD`, `1234`)
-	os.Setenv(`DB_HOST`, `dbhost`)
-	os.Setenv(`DB_NAME`, `dbname`)
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "Success Test",
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := ConnectDatabase()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ConnectDatabase() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-		})
-	}
-}
-
 func TestErrorMessage(t *testing.T) {
 	type args struct {
 		functionError error
@@ -179,6 +153,48 @@ func TestGetPersonName(t *testing.T) {
 			if got.StatusCode != tt.want.StatusCode ||
 				got.Body != tt.want.Body {
 				t.Errorf("SuccessMessage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetProccedings(t *testing.T) {
+	os.Setenv(`BASE_URL`, `http://54.88.138.252:5000`)
+	os.Setenv("AUTHORIZATION_TOKEN", "some_token")
+	type args struct {
+		data RequestGetProccedings
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    events.APIGatewayProxyResponse
+		wantErr bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				data: RequestGetProccedings{
+					Document:     `123456`,
+					DocumentType: `CC`,
+				},
+			},
+			want: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"formal_complaints":1,"recent_complain_year":1,"five_years_amount":1}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetProccedings(tt.args.data)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetProccedings() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got.StatusCode != tt.want.StatusCode ||
+				got.Body != tt.want.Body {
+				t.Errorf("GetProccedings() = %v, want %v", got, tt.want)
 			}
 		})
 	}

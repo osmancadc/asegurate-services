@@ -17,17 +17,13 @@ func HandlerExternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 		return ErrorMessage(err)
 	}
 
-	conn, err := ConnectDatabase()
-	if err != nil {
-		return ErrorMessage(err)
-	}
-	defer conn.Close()
-
 	switch reqBody.Action {
 	case `getPersonData`:
 		return GetPersonData(reqBody.DataBody)
 	case `getPersonName`:
 		return GetPersonName(reqBody.NameBody)
+	case `getPersonProccedings`:
+		return GetProccedings(reqBody.ProccedingsBody)
 	}
 
 	response.StatusCode = http.StatusBadRequest

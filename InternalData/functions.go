@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -72,21 +73,22 @@ func GetPersonByDocument(conn *gorm.DB, body GetByDocumentBody) (response events
 	person := Person{
 		Name: `not_found`,
 	}
-	result := conn.Select(`name`, `gender`).Where(`document = ?`, body.Document).Find(&person)
+	result := conn.Select(body.Fields).Where(&Person{Document: body.Document}).Find(&person)
 	if result.Error != nil {
 		fmt.Printf(`GetPersonByDocument(1): %s`, result.Error.Error())
 		return ErrorMessage(result.Error)
 	}
-
-	if result.RowsAffected > 0 {
-		response = SetResponseHeaders()
-		response.StatusCode = http.StatusOK
-		response.Body = fmt.Sprintf(`{"name":"%s","gender":"%s"}`, person.Name, person.Gender)
-
-		return
+	if result.RowsAffected == 0 {
+		return ErrorMessage(errors.New(`no person found`))
 	}
 
-	return ErrorMessage(errors.New(`no person found`))
+	jsonBody, _ := json.Marshal(person)
+
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = string(jsonBody)
+
+	return
 }
 
 func InsertPerson(conn *gorm.DB, person Person) (response events.APIGatewayProxyResponse, err error) {
@@ -102,7 +104,7 @@ func InsertPerson(conn *gorm.DB, person Person) (response events.APIGatewayProxy
 
 func UpdatePerson(conn *gorm.DB, person Person) (response events.APIGatewayProxyResponse, err error) {
 
-	result := conn.Where(`document = ?`, person.Document).Updates(&person)
+	result := conn.Where(&Person{Document: person.Document}).Updates(&person)
 	if result.Error != nil {
 		return ErrorMessage(result.Error)
 	}
@@ -132,51 +134,52 @@ func GetNameByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGate
 
 	response = SetResponseHeaders()
 	response.StatusCode = 200
-	response.Body = fmt.Sprintf(`{"fullname":"%s %s"}`, person.Name, person.Lastname)
-	return
-}
-
-func GetNameByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
-	person := Person{}
-	result := conn.Model(&Person{}).Select("name, lastname").
-		Where(`document = ?`, body.Document).
-		Scan(&person)
-	if result.Error != nil {
-		fmt.Printf(`GetNameByDocument(1): %s`, result.Error.Error())
-		return ErrorMessage(result.Error)
-	}
-
-	if result.RowsAffected == 0 {
-		fmt.Printf(`GetNameByDocument(2): No person found`)
-		return ErrorMessage(errors.New(`no person found`))
-	}
-
-	response = SetResponseHeaders()
-	response.StatusCode = 200
-	response.Body = fmt.Sprintf(`{"fullname":"%s %s"}`, person.Name, person.Lastname)
+	response.Body = fmt.Sprintf(`{"name":"%s","lastname":"%s"}`, person.Name, person.Lastname)
 	return
 }
 
 // User Services
-func GetAuthorId(conn *gorm.DB, document string) (int, error) {
+
+func GetUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
 	user := User{}
-	result := conn.Select(`user_id`).Where(`document = ?`, document).Find(&user)
+	result := conn.Select(body.Fields).Where(&Person{Document: body.Document}).Find(&user)
 	if result.Error != nil {
-		fmt.Printf(`GetAuthorId(1): %s`, result.Error.Error())
-		return -1, result.Error
+		fmt.Printf(`GetUserByDocument(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrorMessage(errors.New(`no user found`))
 	}
 
-	if result.RowsAffected > 0 {
-		return user.UserId, nil
+	jsonBody, _ := json.Marshal(user)
+
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = string(jsonBody)
+
+	return
+}
+
+func GetAuthorId(conn *gorm.DB, document string) (id int, err error) {
+	user := User{}
+	data, _ := GetUserByDocument(conn,
+		GetByDocumentBody{
+			Document: document,
+			Fields:   []string{`user_id`},
+		})
+	if data.StatusCode != 200 {
+		return -1, errors.New(`author not found`)
 	}
 
-	return -1, errors.New("author not found")
+	json.Unmarshal([]byte(data.Body), &user)
+	id = user.UserId
+
+	return
 }
 
 func GetUserByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
-
 	user := User{}
-	result := conn.Select(`document`).Where(`phone = ?`, body.Phone).Find(&user)
+	result := conn.Select(body.Fields).Where(&User{Phone: body.Phone}).Find(&user)
 	if result.Error != nil {
 		fmt.Printf(`GetUserByPhone(1): %s`, result.Error.Error())
 		return ErrorMessage(result.Error)
@@ -193,17 +196,18 @@ func GetUserByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGate
 
 func CheckUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
 	user := User{}
-	result := conn.Select(`user_id`).Where(`document = ?`, body.Document).Find(&user)
-	if result.Error != nil {
-		fmt.Printf(`GetUserByDocument(1): %s`, result.Error.Error())
-		return ErrorMessage(result.Error)
-	}
+	data, _ := GetUserByDocument(conn,
+		GetByDocumentBody{
+			Document: body.Document,
+			Fields:   []string{},
+		})
 
-	if result.RowsAffected > 0 {
-		return SuccessMessage(`user already exists`)
-	}
+	json.Unmarshal([]byte(data.Body), &user)
 
-	return SuccessMessage(`user does not exists`)
+	if user.Document == "" {
+		return SuccessMessage(`user does not exists`)
+	}
+	return SuccessMessage(`user already exists`)
 }
 
 func InsertUser(conn *gorm.DB, user User) (response events.APIGatewayProxyResponse, err error) {
@@ -217,21 +221,21 @@ func InsertUser(conn *gorm.DB, user User) (response events.APIGatewayProxyRespon
 }
 
 func GetAccountData(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
-	account := Account{}
-	rows, err := conn.Raw(`SELECT CONCAT(name,' ',lastname) name, email, phone, photo, gender FROM person p 
-								INNER JOIN user u ON p.document = u.document
-								WHERE p.document = ?`, body.Document).Rows()
-	if err != nil {
-		fmt.Printf(`GetAccountData(1): %s`, err.Error())
-		return ErrorMessage(err)
-	}
 
-	if rows.Next() {
-		err = rows.Scan(&account.Name, &account.Email, &account.Phone, &account.Photo, &account.Gender)
-		if err != nil {
-			fmt.Printf(`GetAccountData(2): %s`, err.Error())
-			return ErrorMessage(err)
-		}
+	account := Account{}
+
+	result := conn.Model(&User{}).Select(
+		`CONCAT(name,' ',lastname) name`,
+		`email`,
+		`phone`,
+		`photo`,
+		`gender`,
+	).Joins(`INNER JOIN person ON person.document = user.document`).
+		Where(&User{Document: body.Document}).
+		Scan(&account)
+
+	if result.Error != nil {
+		return ErrorMessage(result.Error)
 	}
 
 	response = SetResponseHeaders()
@@ -244,7 +248,7 @@ func GetAccountData(conn *gorm.DB, body GetByDocumentBody) (response events.APIG
 func GetDocumentByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
 	user := User{}
 	result := conn.Model(&User{}).Select("document").
-		Where(`phone = ?`, body.Phone).
+		Where(&User{Phone: body.Phone}).
 		Scan(&user)
 	if result.Error != nil {
 		fmt.Printf(`GetDocumentByPhone(1): %s`, result.Error.Error())
@@ -265,19 +269,20 @@ func GetDocumentByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.API
 //Score Services
 
 func GetScoreByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	internalScore := InternalScore{}
 
-	rows, err := conn.Raw(`SELECT avg(s.score),
-							sum(case when s.score > 50 then 1 else 0 end) positiveScores,
-							sum(case when s.score < 50 then 1 else 0 end) negativeScores,
-							avg(case when DATEDIFF(CURRENT_TIMESTAMP,s.creation_date) < 61 then s.score else null end) Average60Days
-							FROM score s 
-							WHERE s.objective = ?`, body.Document).Rows()
+	rows, err := conn.Model(&Score{}).
+		Select(`avg(score)`,
+			`sum(case when score > 50 then 1 else 0 end) positiveScores`,
+			`sum(case when score < 50 then 1 else 0 end) negativeScores`,
+			`avg(case when DATEDIFF(CURRENT_TIMESTAMP,creation_date) < 61 then score else null end) Average60Days`,
+		).Where(&Score{
+		Objective: body.Document}).Rows()
+
 	if err != nil {
 		fmt.Printf(`GetInternalScoreSummary(1): %s`, err.Error())
 		return ErrorMessage(err)
 	}
-
-	internalScore := InternalScore{}
 
 	if rows.Next() {
 		err = rows.Scan(&internalScore.Score, &internalScore.PositiveScores, &internalScore.NegativeScores, &internalScore.Average60Days)

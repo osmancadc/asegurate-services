@@ -2,14 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HandlerInternalData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
@@ -19,34 +18,34 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 
 	conn, err := ConnectDatabase()
 	if err != nil {
-		fmt.Println(err.Error())
+		return ErrorMessage(err)
 	}
 
 	switch reqBody.Action {
-	case `insertScore`:
-		return InsertScore(conn, reqBody.ScoreBody)
-	case `updatePerson`:
-		return UpdatePerson(conn, reqBody.PersonBody)
-	case `getScore`:
-		return GetScoreByDocument(conn, reqBody.GetByDocumentBody)
-	case `getUserByPhone`:
-		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
-	case `getPersonByDocument`:
-		return GetPersonByDocument(conn, reqBody.GetByDocumentBody)
-	case `checkUserByDocument`:
-		return CheckUserByDocument(conn, reqBody.GetByDocumentBody)
-	case `insertUser`:
-		return InsertUser(conn, reqBody.UserBody)
 	case `insertPerson`:
 		return InsertPerson(conn, reqBody.PersonBody)
-	case `getAccountdata`:
-		return GetAccountData(conn, reqBody.GetByDocumentBody)
+	case `updatePerson`:
+		return UpdatePerson(conn, reqBody.PersonBody)
+	case `getPersonByDocument`:
+		return GetPersonByDocument(conn, reqBody.GetByDocumentBody)
 	case `getNameByPhone`:
 		return GetNameByPhone(conn, reqBody.GetByPhoneBody)
-	case `getNameByDocument`:
-		return GetNameByDocument(conn, reqBody.GetByDocumentBody)
-	case `getDocumentByPhone`:
-		return GetDocumentByPhone(conn, reqBody.GetByPhoneBody)
+	case `insertUser`:
+		return InsertUser(conn, reqBody.UserBody)
+	case `getUserByPhone`:
+		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
+	case `checkUserByDocument`:
+		return CheckUserByDocument(conn, reqBody.GetByDocumentBody)
+	case `getAccountdata`:
+		return GetAccountData(conn, reqBody.GetByDocumentBody)
+	case `insertScore`:
+		return InsertScore(conn, reqBody.ScoreBody)
+	case `getScore`:
+		return GetScoreByDocument(conn, reqBody.GetByDocumentBody)
+		// case `getNameByDocument`:
+		// 	return GetNameByDocument(conn, reqBody.GetByDocumentBody)
+		//case `getDocumentByPhone`:
+		//	return GetDocumentByPhone(conn, reqBody.GetByPhoneBody)
 	}
 
 	response := SetResponseHeaders()
@@ -56,5 +55,5 @@ func HandlerInternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 }
 
 func main() {
-	lambda.Start(HandlerInternalScoreData)
+	lambda.Start(HandlerInternalData)
 }

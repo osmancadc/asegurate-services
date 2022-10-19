@@ -1,7 +1,5 @@
 package main
 
-import "time"
-
 type RequestBody struct {
 	Action            string            `json:"action"`
 	PersonBody        Person            `json:"person_body,omitempty"`
@@ -26,11 +24,13 @@ type ScoreBody struct {
 }
 
 type GetByPhoneBody struct {
-	Phone string `json:"phone"`
+	Phone  string   `json:"phone"`
+	Fields []string `json:"fields,omitempty"`
 }
 
 type GetByDocumentBody struct {
-	Document string `json:"document"`
+	Document string   `json:"document"`
+	Fields   []string `json:"fields,omitempty"`
 }
 
 type Account struct {
@@ -46,28 +46,28 @@ type Account struct {
 // Database Models
 
 type User struct {
-	UserId   int    `gorm:"<-:false"`
-	Document string `gorm:"<-:create"`
-	Email    string `gorm:"<-"`
-	Phone    string `gorm:"<-"`
-	Password string `gorm:"<-"`
-	Role     string `gorm:"<-"`
+	UserId   int    `gorm:"<-:false" json:"user_id,omitempty"`
+	Document string `gorm:"<-:create" json:"document,omitempty"`
+	Email    string `gorm:"<-" json:"email,omitempty"`
+	Phone    string `gorm:"<-" json:"phone,omitempty"`
+	Password string `gorm:"<-" json:"password,omitempty"`
+	Role     string `gorm:"<-" json:"role,omitempty"`
 }
 
 type Person struct {
-	Document   string    `gorm:"<-:create" json:"document"`
-	Name       string    `gorm:"<-:create" json:"name,omitempty"`
-	Lastname   string    `gorm:"<-:create" json:"lastname,omitempty"`
-	Gender     string    `gorm:"<-" json:"gender,omitempty"`
-	Photo      string    `gorm:"<-" json:"photo,omitempty"`
-	LastUpdate time.Time `gorm:"<-:update"`
+	Document   string `gorm:"<-:create" json:"document,omitempty"`
+	Name       string `gorm:"<-:create" json:"name,omitempty"`
+	Lastname   string `gorm:"<-:create" json:"lastname,omitempty"`
+	Gender     string `gorm:"<-" json:"gender,omitempty"`
+	Photo      string `gorm:"<-" json:"photo,omitempty"`
+	LastUpdate string `gorm:"<-:update" json:"last_update,omitempty"`
 }
 
 type Score struct {
-	ID           int       `gorm:"<-:create"`
-	Author       int       `gorm:"<-:create"`
-	Objective    string    `gorm:"<-:create"`
-	Score        int       `gorm:"<-:create"`
-	Comments     string    `gorm:"<-:create"`
-	CreationDate time.Time `gorm:"<-:false"`
+	ID           int    `gorm:"<-:create"`
+	Author       int    `gorm:"<-:create"`
+	Objective    string `gorm:"<-:create"`
+	Score        int    `gorm:"<-:create"`
+	Comments     string `gorm:"<-:create"`
+	CreationDate string `gorm:"<-:false"`
 }

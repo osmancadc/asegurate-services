@@ -71,9 +71,10 @@ func GetExternalInvokePayload(documentType, document string) (payload []byte) {
 
 func GetByDocumentInvokePayload(document string) (payload []byte) {
 	getUserBody, _ := json.Marshal(InvokeBody{
-		Action: `getNameByDocument`,
+		Action: `getPersonByDocument`,
 		GetByDocument: GetByDocumentBody{
 			Document: document,
+			Fields:   []string{`name`, `lastname`},
 		},
 	})
 
@@ -126,8 +127,8 @@ func GetNameByPhone(phone string, client lambdaiface.LambdaAPI) (name string, er
 		return
 	}
 
-	json.Unmarshal([]byte(bodyString), &responseBody)
-	name = responseBody.Fullname
+	err = json.Unmarshal([]byte(response.Body), &responseBody)
+	name = fmt.Sprintf(`%s %s`, responseBody.Name, responseBody.Lastname)
 
 	return
 }
@@ -156,7 +157,7 @@ func GetNameByDocument(document string, client lambdaiface.LambdaAPI) (name stri
 	}
 
 	json.Unmarshal([]byte(bodyString), &responseBody)
-	name = responseBody.Fullname
+	name = fmt.Sprintf(`%s %s`, responseBody.Name, responseBody.Lastname)
 
 	return
 }
@@ -186,7 +187,7 @@ func GetNameFromDatabase(dataType, dataValue string, client lambdaiface.LambdaAP
 func GetNameFromProvider(documentType, document string, client lambdaiface.LambdaAPI) (bool, string, error) {
 	if documentType == `CC` {
 		response := InvokeResponse{}
-		externalBody := ExternalResponseBody{}
+		responseBody := ResponseBody{}
 		messageBody := MessageBody{}
 
 		payload := GetExternalInvokePayload(documentType, document)
@@ -206,9 +207,9 @@ func GetNameFromProvider(documentType, document string, client lambdaiface.Lambd
 			return false, ``, errors.New(messageBody.Message)
 		}
 
-		json.Unmarshal([]byte(bodyString), &externalBody)
+		json.Unmarshal([]byte(bodyString), &responseBody)
 
-		name := fmt.Sprintf("%s %s", externalBody.Name, externalBody.Lastname)
+		name := fmt.Sprintf("%s %s", responseBody.Name, responseBody.Lastname)
 
 		return true, name, nil
 	}

@@ -118,7 +118,7 @@ func TestGetNameByPhone(t *testing.T) {
 				phone:  `3123456`,
 				client: &MockGetByPhone{},
 			},
-			wantName: `some_fullname`,
+			wantName: `some_name some_lastname`,
 			wantErr:  false,
 		},
 		{
@@ -169,7 +169,7 @@ func TestGetNameByDocument(t *testing.T) {
 				document: `123456`,
 				client:   &MockGetByDocument{},
 			},
-			wantName: `some_fullname`,
+			wantName: `some_name some_lastname`,
 			wantErr:  false,
 		},
 		{
@@ -295,7 +295,7 @@ func TestGetNameFromDatabase(t *testing.T) {
 				client:    &MockGetDatabase{},
 			},
 			wantFound: true,
-			wantName:  `some_fullname`,
+			wantName:  `some_name some_lastname`,
 			wantErr:   false,
 		},
 		{
@@ -306,7 +306,7 @@ func TestGetNameFromDatabase(t *testing.T) {
 				client:    &MockGetDatabase{},
 			},
 			wantFound: true,
-			wantName:  `some_fullname`,
+			wantName:  `some_name some_lastname`,
 			wantErr:   false,
 		},
 		{

@@ -27,7 +27,8 @@ type GetExternalBody struct {
 }
 
 type GetByDocumentBody struct {
-	Document string `json:"document"`
+	Document string   `json:"document"`
+	Fields   []string `json:"fields"`
 }
 
 type GetByPhoneBody struct {
@@ -40,10 +41,6 @@ type InvokeResponse struct {
 }
 
 type ResponseBody struct {
-	Fullname string `json:"fullname"`
-}
-
-type ExternalResponseBody struct {
 	Name     string `json:"name"`
 	Lastname string `json:"lastname"`
 }

@@ -12,6 +12,7 @@ var getByPhoneTestNumber = 1
 var getByDocumentTestNumber = 1
 var getExternalTestNumber = 1
 var getDatabaseTestNumber = 1
+var mainTestNumber = 1
 
 // GetByPhone Mock
 type MockGetByPhone struct {
@@ -27,7 +28,7 @@ func (mlc *MockGetByPhone) Invoke(input *lambda.InvokeInput) (*lambda.InvokeOutp
 	case 1:
 		payload, _ = json.Marshal(InvokeResponse{
 			StatusCode: 200,
-			Body:       `{"fullname":"some_fullname"}`,
+			Body:       `{"name":"some_name","lastname":"some_lastname"}`,
 		})
 		err = nil
 		getByPhoneTestNumber += 1
@@ -64,7 +65,7 @@ func (mlc *MockGetByDocument) Invoke(input *lambda.InvokeInput) (*lambda.InvokeO
 	case 1:
 		payload, _ = json.Marshal(InvokeResponse{
 			StatusCode: 200,
-			Body:       `{"fullname":"some_fullname"}`,
+			Body:       `{"name":"some_name","lastname":"some_lastname"}`,
 		})
 		err = nil
 		getByDocumentTestNumber += 1
@@ -137,21 +138,43 @@ func (mlc *MockGetDatabase) Invoke(input *lambda.InvokeInput) (*lambda.InvokeOut
 	case 1:
 		payload, _ = json.Marshal(InvokeResponse{
 			StatusCode: 200,
-			Body:       `{"fullname":"some_fullname"}`,
+			Body:       `{"name":"some_name","lastname":"some_lastname"}`,
 		})
 		err = nil
 		getDatabaseTestNumber += 1
 	case 2:
 		payload, _ = json.Marshal(InvokeResponse{
 			StatusCode: 200,
-			Body:       `{"fullname":"some_fullname"}`,
+			Body:       `{"name":"some_name","lastname":"some_lastname"}`,
 		})
 		err = nil
 		getDatabaseTestNumber += 1
-	case 3:
-		payload, _ = json.Marshal(InvokeResponse{})
-		err = errors.New(`some_error`)
-		getDatabaseTestNumber += 1
+
+	}
+
+	return &lambda.InvokeOutput{
+		Payload: payload,
+	}, err
+}
+
+// Main Mock
+type MockGetPersonNameMain struct {
+	lambdaiface.LambdaAPI
+}
+
+func (mlc *MockGetPersonNameMain) Invoke(input *lambda.InvokeInput) (*lambda.InvokeOutput, error) {
+
+	var payload []byte
+	var err error
+
+	switch mainTestNumber {
+	case 1:
+		payload, _ = json.Marshal(InvokeResponse{
+			StatusCode: 200,
+			Body:       `{"name":"some_name","lastname":"some_lastname"}`,
+		})
+		err = nil
+		mainTestNumber += 1
 	}
 
 	return &lambda.InvokeOutput{

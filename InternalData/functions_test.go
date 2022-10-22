@@ -388,7 +388,7 @@ func TestGetScoreByDocument(t *testing.T) {
 			},
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 500,
-				Body:       `{"message":"some database error"}`,
+				Body:       `{"message":"internal score not found"}`,
 			},
 			wantErr: false,
 		},
@@ -402,7 +402,7 @@ func TestGetScoreByDocument(t *testing.T) {
 			},
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 500,
-				Body:       `{"message":"sql: expected 1 destination arguments in Scan, not 4"}`,
+				Body:       `{"message":"internal score not found"}`,
 			},
 			wantErr: false,
 		},

@@ -800,7 +800,7 @@ func TestInsertPerson(t *testing.T) {
 	//First test mock
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO  (.+)`).
-		WithArgs(`123456`, `some_name`, `some_lastname`, `some_gender`, ``).
+		WithArgs(`123456`, `some_name`, `some_lastname`, `some_gender`, 50, ``).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 

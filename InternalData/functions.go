@@ -93,7 +93,7 @@ func GetPersonByDocument(conn *gorm.DB, body GetByDocumentBody) (response events
 
 func InsertPerson(conn *gorm.DB, person Person) (response events.APIGatewayProxyResponse, err error) {
 
-	result := conn.Create([]Person{person})
+	result := conn.Model(&Person{}).Create([]Person{person})
 	if result.Error != nil {
 		fmt.Printf("InsertUser(1) %s", result.Error.Error())
 		return ErrorMessage(result.Error)

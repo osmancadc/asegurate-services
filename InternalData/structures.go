@@ -59,7 +59,7 @@ type Person struct {
 	Name       string `gorm:"<-:create" json:"name,omitempty"`
 	Lastname   string `gorm:"<-:create" json:"lastname,omitempty"`
 	Gender     string `gorm:"<-" json:"gender,omitempty"`
-	Reputation int    `gorm:"<-:update" json:"reputation,omitempty"`
+	Reputation int    `gorm:"<-;not null;default:50" json:"reputation,omitempty"`
 	Photo      string `gorm:"<-" json:"photo,omitempty"`
 	LastUpdate string `gorm:"<-:update" json:"last_update,omitempty"`
 }

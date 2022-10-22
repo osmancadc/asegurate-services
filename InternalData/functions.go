@@ -272,7 +272,8 @@ func GetScoreByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.
 	internalScore := InternalScore{}
 
 	rows, err := conn.Model(&Score{}).
-		Select(`avg(score)`,
+		Select(
+			`avg(score)`,
 			`sum(case when score > 50 then 1 else 0 end) positiveScores`,
 			`sum(case when score < 50 then 1 else 0 end) negativeScores`,
 			`avg(case when DATEDIFF(CURRENT_TIMESTAMP,creation_date) < 61 then score else null end) Average60Days`,
@@ -281,14 +282,14 @@ func GetScoreByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.
 
 	if err != nil {
 		fmt.Printf(`GetInternalScoreSummary(1): %s`, err.Error())
-		return ErrorMessage(err)
+		return ErrorMessage(errors.New(`internal score not found`))
 	}
 
 	if rows.Next() {
 		err = rows.Scan(&internalScore.Score, &internalScore.PositiveScores, &internalScore.NegativeScores, &internalScore.Average60Days)
 		if err != nil {
 			fmt.Printf(`GetInternalScoreSummary(2): %s`, err.Error())
-			return ErrorMessage(err)
+			return ErrorMessage(errors.New(`internal score not found`))
 		}
 	}
 

@@ -1,599 +1,607 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
-	"os"
+	"errors"
 	"reflect"
 	"testing"
-	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func TestCalculateScore(t *testing.T) {
-	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
-	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
-
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`score`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`50`))
-
-	type args struct {
-		conn         *sql.DB
-		document     string
-		documentType string
-		score        Score
-		found        bool
-	}
+func TestGetClient(t *testing.T) {
 	tests := []struct {
 		name string
-		args args
-		want Score
-
-		wantErr bool
+		want lambdaiface.LambdaAPI
 	}{
 		{
-			name: "Success Test ",
+			name: `Success Test`,
+			want: &lambda.Lambda{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			GetClient()
+		})
+	}
+}
+
+func TestErrorMessage(t *testing.T) {
+	type args struct {
+		functionError error
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: "Success Test",
 			args: args{
-				conn:         db,
-				document:     `123456`,
-				documentType: `CC`,
-				found:        true,
-				score: Score{
-					Name:       `some_name`,
-					Lastname:   `some_lastname`,
-					Score:      50,
-					Reputation: 50,
-					Stars:      3,
-					Updated:    time.Now().Format(`2006-01-02 15:04:05`),
-				},
+				functionError: errors.New(`some error`),
 			},
-			want: Score{
-				Name:       `some_name`,
-				Lastname:   `some_lastname`,
-				Score:      50,
-				Reputation: 50,
-				Stars:      2,
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some error"}`,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CalculateScore(tt.args.conn, tt.args.document, tt.args.documentType, tt.args.score, tt.args.found)
+			gotResponse, err := ErrorMessage(tt.args.functionError)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("CalculateScore() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ErrorMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CalculateScore() = %v, want %v", got, tt.want)
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("ErrorMessage() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}
 }
 
-func TestValidatePhone(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`document`, `name`, `lastname`, `gender`, `score`, `reputation`, `stars`, `last_update`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`3001234567`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`, `some_name`, `some_lastname`, `male`, `50`, `50`, `3`, "25-06-2022"))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`3007654321`).
-		WillReturnRows(sqlmock.NewRows(columns))
-
+func TestSuccessMessage(t *testing.T) {
 	type args struct {
-		conn  *sql.DB
-		phone string
+		score Score
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    Score
-		want1   string
-		wantErr bool
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
 	}{
 		{
-			name: "test",
+			name: `Success Test`,
 			args: args{
-				conn:  db,
-				phone: `3001234567`,
+				score: Score{
+					Document:   `123456`,
+					Name:       `some_name`,
+					Gender:     `some_gender`,
+					Score:      0,
+					Reputation: 0,
+					Stars:      0,
+				},
 			},
-			want: Score{
-				Name:       "some_name",
-				Lastname:   "some_lastname",
-				Gender:     `male`,
-				Score:      50,
-				Reputation: 50,
-				Stars:      3,
-				Updated:    `25-06-2022`,
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"document":"123456","name":"some_name","gender":"some_gender","score":0,"reputation":0,"stars":0,"certified":false,"photo":""}`,
 			},
-			want1:   `123456`,
 			wantErr: false,
-		},
-		{
-			name: "test not found",
-			args: args{
-				conn:  db,
-				phone: `3007654321`,
-			},
-			want:    Score{},
-			want1:   ``,
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := ValidatePhone(tt.args.conn, tt.args.phone)
+			gotResponse, err := SuccessMessage(tt.args.score)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidatePhone() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("SuccessMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ValidatePhone() got = %v, want %v", got, tt.want)
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("SuccessMessage() = %v, want %v", gotResponse, tt.wantResponse)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("ValidatePhone() got1 = %v, want %v", got1, tt.want1)
+		})
+	}
+}
+
+func TestGetAssociatedDocument(t *testing.T) {
+	type args struct {
+		phone  string
+		client lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantDocument string
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				phone:  `3123456`,
+				client: &MockGetAssociatedDocument{},
+			},
+			wantDocument: `123456`,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				phone:  `3123456`,
+				client: &MockGetAssociatedDocument{},
+			},
+			wantDocument: ``,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				phone:  `3123456`,
+				client: &MockGetAssociatedDocument{},
+			},
+			wantDocument: ``,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotDocument := GetAssociatedDocument(tt.args.phone, tt.args.client); gotDocument != tt.wantDocument {
+				t.Errorf("GetAssociatedDocument() = %v, want %v", gotDocument, tt.wantDocument)
+			}
+		})
+	}
+}
+
+func TestGetInternalScore(t *testing.T) {
+	type args struct {
+		document string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantScore    InternalScore
+		wantIsStored bool
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				document: `123456`,
+				client:   &MockGetInternalScore{},
+			},
+			wantScore: InternalScore{
+				Score:          0,
+				PositiveScores: 0,
+				NegativeScores: 0,
+				Average60Days:  0,
+			},
+			wantIsStored: true,
+			wantErr:      false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				document: ``,
+				client:   &MockGetInternalScore{},
+			},
+			wantScore:    InternalScore{},
+			wantIsStored: false,
+			wantErr:      true,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				document: ``,
+				client:   &MockGetInternalScore{},
+			},
+			wantScore:    InternalScore{},
+			wantIsStored: false,
+			wantErr:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotScore, gotIsStored, err := GetInternalScore(tt.args.document, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetInternalScore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotScore, tt.wantScore) {
+				t.Errorf("GetInternalScore() gotScore = %v, want %v", gotScore, tt.wantScore)
+			}
+			if gotIsStored != tt.wantIsStored {
+				t.Errorf("GetInternalScore() gotIsStored = %v, want %v", gotIsStored, tt.wantIsStored)
+			}
+		})
+	}
+}
+
+func TestGetExternalProccedings(t *testing.T) {
+	type args struct {
+		document string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name            string
+		args            args
+		wantProccedings ExternalProccedings
+		wantErr         bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				document: `123456`,
+				client:   &MockGetExternalProceedings{},
+			},
+			wantProccedings: ExternalProccedings{
+				FormalComplaints:  0,
+				FormalRecentYear:  0,
+				Formal5YearsTotal: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				document: ``,
+				client:   &MockGetExternalProceedings{},
+			},
+			wantProccedings: ExternalProccedings{
+				FormalComplaints:  0,
+				FormalRecentYear:  0,
+				Formal5YearsTotal: 0,
+			},
+			wantErr: true,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				document: ``,
+				client:   &MockGetExternalProceedings{},
+			},
+			wantProccedings: ExternalProccedings{
+				FormalComplaints:  0,
+				FormalRecentYear:  0,
+				Formal5YearsTotal: 0,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotProccedings, err := GetExternalProccedings(tt.args.document, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetExternalProccedings() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotProccedings, tt.wantProccedings) {
+				t.Errorf("GetExternalProccedings() = %v, want %v", gotProccedings, tt.wantProccedings)
 			}
 		})
 	}
 }
 
 func TestGetStoredScore(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`name`, `lastname`, `gender`, `score`, `reputation`, `stars`, `last_update`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM person (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_lastname`, `male`, `50`, `50`, `3`, "25-06-2022"))
-
-	mock.ExpectQuery(`SELECT (.+) FROM person (.+)`).
-		WithArgs(`654321`).
-		WillReturnRows(sqlmock.NewRows(columns))
-
 	type args struct {
-		conn     *sql.DB
 		document string
+		client   lambdaiface.LambdaAPI
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    Score
-		want1   bool
-		wantErr bool
+		name            string
+		args            args
+		wantStoredScore Score
 	}{
 		{
-			name: `Success test - User found`,
+			name: `Success Test`,
 			args: args{
-				conn:     db,
 				document: `123456`,
+				client:   &MockGetStoredScore{},
 			},
-			want: Score{
-				Name:       `some_name`,
-				Lastname:   `some_lastname`,
-				Gender:     `male`,
-				Score:      50,
-				Reputation: 50,
-				Stars:      3,
-				Updated:    `25-06-2022`,
+			wantStoredScore: Score{
+				Name:       `some_name some_lastname`,
+				Reputation: 0,
 			},
-			want1:   true,
-			wantErr: false,
 		},
 		{
-			name: `Success test - No user found`,
+			name: `Error Test - Invocation Error`,
 			args: args{
-				conn:     db,
-				document: `654321`,
+				document: ``,
+				client:   &MockGetStoredScore{},
 			},
-			want:    Score{},
-			want1:   false,
-			wantErr: false,
+			wantStoredScore: Score{
+				Name:       ``,
+				Reputation: 0,
+			},
 		},
 		{
-			name: `Error test - No document sent`,
+			name: `Error Test - Status 500`,
 			args: args{
-				conn: db,
+				document: ``,
+				client:   &MockGetStoredScore{},
 			},
-			want:    Score{},
-			want1:   false,
-			wantErr: true,
+			wantStoredScore: Score{
+				Name:       ``,
+				Reputation: 0,
+			},
+		},
+		{
+			name: `Error Test - Empty Response`,
+			args: args{
+				document: ``,
+				client:   &MockGetStoredScore{},
+			},
+			wantStoredScore: Score{
+				Name:       ``,
+				Reputation: 0,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := GetStoredScore(tt.args.conn, tt.args.document)
+			gotStoredScore, _ := GetStoredScore(tt.args.document, tt.args.client)
+			if !reflect.DeepEqual(gotStoredScore, tt.wantStoredScore) {
+				t.Errorf("GetStoredScore() gotStoredScore = %v, want %v", gotStoredScore, tt.wantStoredScore)
+			}
+
+		})
+	}
+}
+
+func TestPredictPersonScore(t *testing.T) {
+	type args struct {
+		internalScore       InternalScore
+		externalProccedings ExternalProccedings
+		client              lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name                   string
+		args                   args
+		wantPredictionResponse PredictionResponse
+		wantErr                bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				internalScore:       InternalScore{},
+				externalProccedings: ExternalProccedings{},
+				client:              &MockPredictScore{},
+			},
+			wantPredictionResponse: PredictionResponse{},
+			wantErr:                false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				internalScore:       InternalScore{},
+				externalProccedings: ExternalProccedings{},
+				client:              &MockPredictScore{},
+			},
+			wantPredictionResponse: PredictionResponse{},
+			wantErr:                true,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				internalScore:       InternalScore{},
+				externalProccedings: ExternalProccedings{},
+				client:              &MockPredictScore{},
+			},
+			wantPredictionResponse: PredictionResponse{},
+			wantErr:                false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPredictionResponse, err := PredictPersonScore(tt.args.internalScore, tt.args.externalProccedings, tt.args.client)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetStoredScore() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PredictPersonScore() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetStoredScore() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("GetStoredScore() got1 = %v, want %v", got1, tt.want1)
+			if !reflect.DeepEqual(gotPredictionResponse, tt.wantPredictionResponse) {
+				t.Errorf("PredictPersonScore() = %v, want %v", gotPredictionResponse, tt.wantPredictionResponse)
 			}
 		})
 	}
 }
 
-func TestDaysSinceLastUpdate(t *testing.T) {
-	date := time.Now()
-
+func TestCalculateScore(t *testing.T) {
 	type args struct {
-		lastUpdate string
+		document string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantIsStored bool
+		wantScore    Score
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				document: `123456`,
+				client:   &MockCalculateScore{},
+			},
+			wantIsStored: true,
+			wantScore: Score{
+				Document:  `123456`,
+				Name:      `some_name some_lastname`,
+				Certified: true,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIsStored, gotScore, err := CalculateScore(tt.args.document, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CalculateScore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotIsStored != tt.wantIsStored {
+				t.Errorf("CalculateScore() gotIsStored = %v, want %v", gotIsStored, tt.wantIsStored)
+			}
+			if !reflect.DeepEqual(gotScore, tt.wantScore) {
+				t.Errorf("CalculateScore() gotScore = %v, want %v", gotScore, tt.wantScore)
+			}
+		})
+	}
+}
+
+func TestUpdateSavedReputation(t *testing.T) {
+	type args struct {
+		document   string
+		reputation int
+		client     lambdaiface.LambdaAPI
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    int
 		wantErr bool
 	}{
 		{
-			name: `Success test - Correct date`,
+			name: `Success Test`,
 			args: args{
-				lastUpdate: date.Format(`2006-01-02 15:04:05`),
+				client: &MockUpdate{},
 			},
-			want:    0,
 			wantErr: false,
 		},
 		{
-			name: `Success test - Empty date`,
+			name: `Error Test - Invocation Error`,
 			args: args{
-				lastUpdate: ``,
+				client: &MockUpdate{},
 			},
-			want:    1,
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: `Error test - Wrong date format`,
+			name: `Error Test - Status 500`,
 			args: args{
-				lastUpdate: `01/01/2022-15HH:04M:05S`,
+				client: &MockUpdate{},
 			},
-			want:    -1,
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := DaysSinceLastUpdate(tt.args.lastUpdate)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DaysSinceLastUpdate() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("DaysSinceLastUpdate() = %v, want %v", got, tt.want)
+			if err := UpdateSavedReputation(tt.args.document, tt.args.reputation, tt.args.client); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateSavedReputation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
 func TestGetAssociatedName(t *testing.T) {
-	os.Setenv(`DATA_URL`, `http://54.88.138.252:5000`)
-	os.Setenv(`AUTHORIZATION_TOKEN`, `some-testing-token`)
-
 	type args struct {
-		document     string
-		documentType string
+		document string
+		client   lambdaiface.LambdaAPI
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		want1   string
-		wantErr bool
+		name         string
+		args         args
+		wantName     string
+		wantLastname string
+		wantErr      bool
 	}{
 		{
-			name: `Success test - User exists`,
+			name: `Success Tests`,
 			args: args{
-				document:     `12345678`,
-				documentType: `CC`,
+				client: &MockAssociatedName{},
 			},
-			want:    `some_name`,
-			want1:   `some_lastname`,
-			wantErr: false,
+			wantName:     `some_name`,
+			wantLastname: `some_lastname`,
+			wantErr:      false,
+		},
+		{
+			name: `Error Tests - Invocation Error`,
+			args: args{
+				client: &MockAssociatedName{},
+			},
+			wantName:     ``,
+			wantLastname: ``,
+			wantErr:      true,
+		},
+		{
+			name: `Error Tests - Status 500`,
+			args: args{
+				client: &MockAssociatedName{},
+			},
+			wantName:     ``,
+			wantLastname: ``,
+			wantErr:      true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := GetAssociatedName(tt.args.document, tt.args.documentType)
+			gotName, gotLastname, err := GetAssociatedName(tt.args.document, tt.args.client)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAssociatedName() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetAssociatedName() got = %v, want %v", got, tt.want)
+			if gotName != tt.wantName {
+				t.Errorf("GetAssociatedName() gotName = %v, want %v", gotName, tt.wantName)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("GetAssociatedName() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
-func TestGetResponseBody(t *testing.T) {
-	type args struct {
-		score    Score
-		document string
-		photo    string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "Success test - ",
-			args: args{
-				score: Score{
-					Name:       "some_name",
-					Lastname:   "Beltran",
-					Gender:     `male`,
-					Score:      100,
-					Reputation: 100,
-					Stars:      5,
-				},
-				document: `123456`,
-				photo:    `https://photo.jpg`,
-			},
-			want: fmt.Sprintf(`{
-		"name": "%s",
-		"document": "%s",
-		"gender": "%s",
-		"stars": %d,
-		"reputation": %d,
-		"score": %d,
-		"certified": %t,
-		"photo": "%s"
-	}`, "some_name Beltran", "123456", `male`, 5, 100, 100, true, "https://photo.jpg"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetResponseBody(tt.args.score, tt.args.document, tt.args.photo); got != tt.want {
-				t.Errorf("GetResponseBody() = \n%v, \nwant \n%v", got, tt.want)
+			if gotLastname != tt.wantLastname {
+				t.Errorf("GetAssociatedName() gotLastname = %v, want %v", gotLastname, tt.wantLastname)
 			}
 		})
 	}
 }
 
-func TestSaveNewPerson(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	mock.ExpectPrepare(`INSERT INTO person \((.+)\)`)
-	mock.ExpectExec(`INSERT INTO person (.+)`).
-		WithArgs(`123456`, `some_name`, `some_lastname`, ``, 50, 3, 50).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
+func TestSaveNewReputation(t *testing.T) {
 	type args struct {
-		conn     *sql.DB
-		score    Score
-		document string
+		document   string
+		reputation int
+		client     lambdaiface.LambdaAPI
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name         string
+		args         args
+		wantName     string
+		wantLastname string
+		wantErr      bool
 	}{
 		{
-			name: "Success test - All the score data",
+			name: `Success Test`,
 			args: args{
-				conn: db,
-				score: Score{
-					Name:       `some_name`,
-					Lastname:   `some_lastname`,
-					Gender:     ``,
-					Score:      50,
-					Reputation: 50,
-					Stars:      3,
-				},
-				document: `123456`,
+				client: &MockCreateScore{},
 			},
-			wantErr: false,
+			wantName:     `some_name`,
+			wantLastname: `some_lastname`,
+			wantErr:      false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockCreateScore{},
+			},
+			wantName:     `some_name`,
+			wantLastname: `some_lastname`,
+			wantErr:      true,
+		},
+		{
+			name: `Success Test - Status 500`,
+			args: args{
+				client: &MockCreateScore{},
+			},
+			wantName:     `some_name`,
+			wantLastname: `some_lastname`,
+			wantErr:      true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := SaveNewPerson(tt.args.conn, tt.args.score, tt.args.document); (err != nil) != tt.wantErr {
-				t.Errorf("SaveNewPerson() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestCalculateInternalScore(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`score`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`90`).AddRow(`10`).AddRow(`90`).AddRow(`50`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`654321`).
-		WillReturnRows(sqlmock.NewRows(columns))
-
-	type args struct {
-		conn     *sql.DB
-		document string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    int
-		wantErr bool
-	}{
-		{
-			name: `Success test - 3 scores`,
-			args: args{
-				conn:     db,
-				document: `123456`,
-			},
-			want:    60,
-			wantErr: false,
-		},
-		{
-			name: `Success test - No scores found`,
-			args: args{
-				conn:     db,
-				document: `654321`,
-			},
-			want:    50,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := CalculateInternalScore(tt.args.conn, tt.args.document)
+			gotName, gotLastname, err := SaveNewReputation(tt.args.document, tt.args.reputation, tt.args.client)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("CalculateInternalScore() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("SaveNewReputation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("CalculateInternalScore() = %v, want %v", got, tt.want)
+			if gotName != tt.wantName {
+				t.Errorf("SaveNewReputation() gotName = %v, want %v", gotName, tt.wantName)
 			}
-		})
-	}
-}
-
-func TestGetPersonPhoto(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`photo`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`https://photo.png`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`3001234567`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`https://photo.png`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`3001234568`).
-		WillReturnRows(sqlmock.NewRows(columns))
-
-	type args struct {
-		conn      *sql.DB
-		dataValue string
-		dataType  string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
-	}{
-		{
-			name: `Success test - using document`,
-			args: args{
-				conn:      db,
-				dataValue: `123456`,
-				dataType:  `CC`,
-			},
-			want:    `https://photo.png`,
-			wantErr: false,
-		},
-		{
-			name: `Success test - using cellphone`,
-			args: args{
-				conn:      db,
-				dataValue: `3001234567`,
-				dataType:  `PHONE`,
-			},
-			want:    `https://photo.png`,
-			wantErr: false,
-		},
-		{
-			name: `Success test - not photo found`,
-			args: args{
-				conn:      db,
-				dataValue: `3001234568`,
-				dataType:  `PHONE`,
-			},
-			want:    ``,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetPersonPhoto(tt.args.conn, tt.args.dataValue, tt.args.dataType)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetPersonPhoto() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("GetPersonPhoto() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCalculateReputation(t *testing.T) {
-	type args struct {
-		document     string
-		documentType string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    int
-		wantErr bool
-	}{
-		{
-			name: "Success test - everything ok",
-			args: args{
-				document:     `123456`,
-				documentType: `CC`,
-			},
-			want:    50,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := CalculateReputation(tt.args.document, tt.args.documentType)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CalculateReputation() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("CalculateReputation() = %v, want %v", got, tt.want)
+			if gotLastname != tt.wantLastname {
+				t.Errorf("SaveNewReputation() gotLastname = %v, want %v", gotLastname, tt.wantLastname)
 			}
 		})
 	}

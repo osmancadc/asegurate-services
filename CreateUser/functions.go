@@ -73,6 +73,9 @@ func ExternalDataInvokePayload(document, expeditionDate string) (payload []byte)
 	return
 }
 
+/*
+Takes a `PersonData` struct and a document number as parameters, and returns a payload `[]byte` that can be used to invoke the lambda function
+*/
 func SavePersonInvokePayload(personData PersonData, document string) (payload []byte) {
 	gender := `female`
 
@@ -98,6 +101,9 @@ func SavePersonInvokePayload(personData PersonData, document string) (payload []
 	return
 }
 
+/*
+Takes a gender and a document as parameters, and returns a payload `[]byte` that can be used to invoke the lambda function
+*/
 func UpdateGenderInvokePayload(gender, document string) (payload []byte) {
 
 	if gender == `HOMBRE` {
@@ -122,6 +128,9 @@ func UpdateGenderInvokePayload(gender, document string) (payload []byte) {
 	return
 }
 
+/*
+Takes a `UserBody` struct as parameter, and returns a payload `[]byte` that can be used to invoke the lambda function
+*/
 func SaveUserInvokePayload(user UserBody) (payload []byte) {
 
 	saveUserBody, _ := json.Marshal(InvokeBody{
@@ -138,6 +147,10 @@ func SaveUserInvokePayload(user UserBody) (payload []byte) {
 	return
 }
 
+/*
+Takes a document number and a lambda client, and returns the name of the person, a boolean
+indicating if the person exists, a boolean indicating if the person needs to be updated, and an error
+*/
 func CheckExistingPerson(document string, client lambdaiface.LambdaAPI) (name string, exists bool, needsUpdate bool, err error) {
 	payload := GetInvokePayload(document, `getPersonByDocument`)
 

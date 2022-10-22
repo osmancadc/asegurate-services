@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func TestHandlerExternalScoreData(t *testing.T) {
+func TestHandlerExternalData(t *testing.T) {
 	os.Setenv(`BASE_URL`, `http://54.88.138.252:5000`)
 	os.Setenv("AUTHORIZATION_TOKEN", "some_token")
 	type args struct {
@@ -41,7 +41,7 @@ func TestHandlerExternalScoreData(t *testing.T) {
 			},
 			want: events.APIGatewayProxyResponse{
 				StatusCode: 200,
-				Body:       `{"name":"some_name","last_name":"some_lastname"}`,
+				Body:       `{"name":"some_name","lastname":"some_lastname"}`,
 			},
 			wantErr: false,
 		},
@@ -74,7 +74,7 @@ func TestHandlerExternalScoreData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := HandlerExternalScoreData(tt.args.req)
+			got, err := HandlerExternalData(tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HandlerExternalScoreData() error = %v, wantErr %v", err, tt.wantErr)
 				return

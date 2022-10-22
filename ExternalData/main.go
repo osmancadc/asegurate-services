@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func HandlerExternalScoreData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func HandlerExternalData(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var reqBody RequestBody
 	response := SetResponseHeaders()
 
@@ -33,5 +33,5 @@ func HandlerExternalScoreData(req events.APIGatewayProxyRequest) (events.APIGate
 }
 
 func main() {
-	lambda.Start(HandlerExternalScoreData)
+	lambda.Start(HandlerExternalData)
 }

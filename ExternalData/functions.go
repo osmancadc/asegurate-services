@@ -99,7 +99,7 @@ func GetPersonName(data RequestGetName) (events.APIGatewayProxyResponse, error) 
 
 	response := SetResponseHeaders()
 	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{"name":"%s","last_name":"%s"}`, person.Data.Name, person.Data.Lastname)
+	response.Body = fmt.Sprintf(`{"name":"%s","lastname":"%s"}`, person.Data.Name, person.Data.Lastname)
 
 	return response, nil
 }

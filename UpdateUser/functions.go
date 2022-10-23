@@ -125,14 +125,15 @@ func UploadToS3(file io.Reader, fileName string) (location string, err error) {
 	return
 }
 
-func UpdateDatabase(route, document, email, phone string, client lambdaiface.LambdaAPI) (err error) {
-	payload := UpdateSavedReputationInvokePayload(document, route, email, phone)
+func UpdatePhotoDatabase(route, document string, client lambdaiface.LambdaAPI) (err error) {
+
+	payload := UpdatePhotoInvokePayload(document, route)
 	response := InvokeResponse{}
 	responseMessage := ResponseMessage{}
 
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`UpdateDatabase(1): %s`, err.Error())
+		fmt.Printf(`UpdatePhotoDatabase(1): %s`, err.Error())
 		return
 	}
 
@@ -140,7 +141,32 @@ func UpdateDatabase(route, document, email, phone string, client lambdaiface.Lam
 	err = json.Unmarshal([]byte(response.Body), &responseMessage)
 
 	if response.StatusCode != 200 {
-		fmt.Printf(`UpdateDatabase(2): %s`, responseMessage.Message)
+		fmt.Printf(`UpdatePhotoDatabase(2): %s`, responseMessage.Message)
+		err = errors.New(responseMessage.Message)
+
+		return
+	}
+
+	return
+}
+
+func UpdateUserDatabase(document, email, phone string, client lambdaiface.LambdaAPI) (err error) {
+
+	payload := UpdateUserInvokePayload(document, email, phone)
+	response := InvokeResponse{}
+	responseMessage := ResponseMessage{}
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
+	if err != nil {
+		fmt.Printf(`UpdateUserDatabase(1): %s`, err.Error())
+		return
+	}
+
+	json.Unmarshal(result.Payload, &response)
+	err = json.Unmarshal([]byte(response.Body), &responseMessage)
+
+	if response.StatusCode != 200 {
+		fmt.Printf(`UpdateUserDatabase(2): %s`, responseMessage.Message)
 		err = errors.New(responseMessage.Message)
 
 		return

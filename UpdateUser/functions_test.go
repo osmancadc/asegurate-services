@@ -265,9 +265,50 @@ func TestUploadImage(t *testing.T) {
 	}
 }
 
-func TestUpdateDatabase(t *testing.T) {
+func TestUpdatePhotoDatabase(t *testing.T) {
 	type args struct {
 		route    string
+		document string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				client: &MockUpdatePhotoDatabase{},
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockUpdatePhotoDatabase{},
+			},
+			wantErr: true,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				client: &MockUpdatePhotoDatabase{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := UpdatePhotoDatabase(tt.args.route, tt.args.document, tt.args.client); (err != nil) != tt.wantErr {
+				t.Errorf("UpdatePhotoDatabase() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdateUserDatabase(t *testing.T) {
+	type args struct {
 		document string
 		email    string
 		phone    string
@@ -281,29 +322,29 @@ func TestUpdateDatabase(t *testing.T) {
 		{
 			name: `Success Test`,
 			args: args{
-				client: &MockUpdateDatabase{},
+				client: &MockUpdateUserDatabase{},
 			},
 			wantErr: false,
 		},
 		{
 			name: `Error Test - Invocation Error`,
 			args: args{
-				client: &MockUpdateDatabase{},
+				client: &MockUpdateUserDatabase{},
 			},
 			wantErr: true,
 		},
 		{
 			name: `Error Test - Status 500`,
 			args: args{
-				client: &MockUpdateDatabase{},
+				client: &MockUpdateUserDatabase{},
 			},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := UpdateDatabase(tt.args.route, tt.args.document, tt.args.email, tt.args.phone, tt.args.client); (err != nil) != tt.wantErr {
-				t.Errorf("UpdateDatabase() error = %v, wantErr %v", err, tt.wantErr)
+			if err := UpdateUserDatabase(tt.args.document, tt.args.email, tt.args.phone, tt.args.client); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateUserDatabase() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

@@ -15,6 +15,7 @@ type InvokePayload struct {
 type InvokeBody struct {
 	Action string `json:"action"`
 	Person Person `json:"person_body,omitempty"`
+	User   User   `json:"user_body,omitempty"`
 }
 
 type InvokeResponse struct {
@@ -29,6 +30,10 @@ type ResponseMessage struct {
 type Person struct {
 	Document string `json:"document,omitempty"`
 	Photo    string `json:"photo,omitempty"`
+}
+
+type User struct {
+	Document string `json:"document,omitempty"`
 	Email    string `json:"email,omitempty"`
 	Phone    string `json:"phone,omitempty"`
 }

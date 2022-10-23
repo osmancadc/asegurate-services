@@ -1217,3 +1217,103 @@ func TestGetDocumentByPhone(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateUser(t *testing.T) {
+	pool, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	//First test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE (.+)`).
+		WithArgs(`some_email`, `123456`).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	//Second test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE (.+)`).
+		WithArgs(`some_phone`, `123456`).
+		WillReturnResult(sqlmock.NewResult(1, 0))
+	mock.ExpectCommit()
+
+	// //Third test mock
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE (.+)`).
+		WithArgs(`some_pass`, `654321`).
+		WillReturnError(errors.New(`some_error`))
+	mock.ExpectRollback()
+
+	type args struct {
+		conn *gorm.DB
+		user User
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test - Update Gender`,
+			args: args{
+				conn: db,
+				user: User{
+					Document: `123456`,
+					Email:    `some_email`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"message":"User data updated successfully"}`,
+			},
+		},
+		{
+			name: `Error Test - No Data Updated`,
+			args: args{
+				conn: db,
+				user: User{
+					Phone:    `some_phone`,
+					Document: `123456`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"no data was updated"}`,
+			},
+		},
+		{
+			name: `Error Test - Database Error`,
+			args: args{
+				conn: db,
+				user: User{
+					Password: `some_pass`,
+					Document: `654321`,
+				},
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some_error"}`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := UpdateUser(tt.args.conn, tt.args.user)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateUser() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("UpdateUser() = %v, want %v", gotResponse, tt.wantResponse)
+			}
+		})
+	}
+}

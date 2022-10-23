@@ -91,6 +91,28 @@ func GetPersonByDocument(conn *gorm.DB, body GetByDocumentBody) (response events
 	return
 }
 
+func GetNameByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
+	person := Person{}
+	result := conn.Model(&Person{}).Select("name, lastname").
+		Joins("inner join user on person.document = user.document").
+		Where(`user.phone = ?`, body.Phone).
+		Scan(&person)
+	if result.Error != nil {
+		fmt.Printf(`GetNameByPhone(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		fmt.Printf(`GetNameByPhone(2): No user found`)
+		return ErrorMessage(errors.New(`no user found`))
+	}
+
+	response = SetResponseHeaders()
+	response.StatusCode = 200
+	response.Body = fmt.Sprintf(`{"name":"%s","lastname":"%s"}`, person.Name, person.Lastname)
+	return
+}
+
 func InsertPerson(conn *gorm.DB, person Person) (response events.APIGatewayProxyResponse, err error) {
 
 	result := conn.Model(&Person{}).Create([]Person{person})
@@ -116,49 +138,7 @@ func UpdatePerson(conn *gorm.DB, person Person) (response events.APIGatewayProxy
 	return SuccessMessage(`Person data updated successfully`)
 }
 
-func GetNameByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGatewayProxyResponse, err error) {
-	person := Person{}
-	result := conn.Model(&Person{}).Select("name, lastname").
-		Joins("inner join user on person.document = user.document").
-		Where(`user.phone = ?`, body.Phone).
-		Scan(&person)
-	if result.Error != nil {
-		fmt.Printf(`GetNameByPhone(1): %s`, result.Error.Error())
-		return ErrorMessage(result.Error)
-	}
-
-	if result.RowsAffected == 0 {
-		fmt.Printf(`GetNameByPhone(2): No user found`)
-		return ErrorMessage(errors.New(`no user found`))
-	}
-
-	response = SetResponseHeaders()
-	response.StatusCode = 200
-	response.Body = fmt.Sprintf(`{"name":"%s","lastname":"%s"}`, person.Name, person.Lastname)
-	return
-}
-
 // User Services
-
-func GetUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
-	user := User{}
-	result := conn.Select(body.Fields).Where(&Person{Document: body.Document}).Find(&user)
-	if result.Error != nil {
-		fmt.Printf(`GetUserByDocument(1): %s`, result.Error.Error())
-		return ErrorMessage(result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return ErrorMessage(errors.New(`no user found`))
-	}
-
-	jsonBody, _ := json.Marshal(user)
-
-	response = SetResponseHeaders()
-	response.StatusCode = http.StatusOK
-	response.Body = string(jsonBody)
-
-	return
-}
 
 func GetAuthorId(conn *gorm.DB, document string) (id int, err error) {
 	user := User{}
@@ -192,32 +172,6 @@ func GetUserByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.APIGate
 	}
 
 	return ErrorMessage(errors.New(`user not found`))
-}
-
-func CheckUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
-	user := User{}
-	data, _ := GetUserByDocument(conn,
-		GetByDocumentBody{
-			Document: body.Document,
-			Fields:   []string{},
-		})
-
-	json.Unmarshal([]byte(data.Body), &user)
-
-	if user.Document == "" {
-		return SuccessMessage(`user does not exists`)
-	}
-	return SuccessMessage(`user already exists`)
-}
-
-func InsertUser(conn *gorm.DB, user User) (response events.APIGatewayProxyResponse, err error) {
-	result := conn.Create([]User{user})
-	if result.Error != nil {
-		fmt.Printf("InsertUser(1) %s", result.Error.Error())
-		return ErrorMessage(result.Error)
-	}
-
-	return SuccessMessage(`User inserted successfully`)
 }
 
 func GetAccountData(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
@@ -264,6 +218,66 @@ func GetDocumentByPhone(conn *gorm.DB, body GetByPhoneBody) (response events.API
 	response.StatusCode = 200
 	response.Body = fmt.Sprintf(`{"document":"%s"}`, user.Document)
 	return
+}
+
+func GetUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	user := User{}
+	result := conn.Select(body.Fields).Where(&Person{Document: body.Document}).Find(&user)
+	if result.Error != nil {
+		fmt.Printf(`GetUserByDocument(1): %s`, result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrorMessage(errors.New(`no user found`))
+	}
+
+	jsonBody, _ := json.Marshal(user)
+
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = string(jsonBody)
+
+	return
+}
+
+func CheckUserByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	user := User{}
+	data, _ := GetUserByDocument(conn,
+		GetByDocumentBody{
+			Document: body.Document,
+			Fields:   []string{},
+		})
+
+	json.Unmarshal([]byte(data.Body), &user)
+
+	if user.Document == "" {
+		return SuccessMessage(`user does not exists`)
+	}
+	return SuccessMessage(`user already exists`)
+}
+
+func InsertUser(conn *gorm.DB, user User) (response events.APIGatewayProxyResponse, err error) {
+	result := conn.Create([]User{user})
+	if result.Error != nil {
+		fmt.Printf("InsertUser(1) %s", result.Error.Error())
+		return ErrorMessage(result.Error)
+	}
+
+	return SuccessMessage(`User inserted successfully`)
+}
+
+func UpdateUser(conn *gorm.DB, user User) (response events.APIGatewayProxyResponse, err error) {
+
+	result := conn.Where(&Person{Document: user.Document}).Updates(&user)
+	if result.Error != nil {
+		return ErrorMessage(result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return ErrorMessage(errors.New(`no data was updated`))
+	}
+
+	return SuccessMessage(`User data updated successfully`)
 }
 
 //Score Services

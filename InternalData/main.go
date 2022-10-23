@@ -32,6 +32,8 @@ func HandlerInternalData(req events.APIGatewayProxyRequest) (events.APIGatewayPr
 		return GetNameByPhone(conn, reqBody.GetByPhoneBody)
 	case `insertUser`:
 		return InsertUser(conn, reqBody.UserBody)
+	case `updateUser`:
+		return UpdateUser(conn, reqBody.UserBody)
 	case `getUserByPhone`:
 		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
 	case `checkUserByDocument`:
@@ -42,10 +44,7 @@ func HandlerInternalData(req events.APIGatewayProxyRequest) (events.APIGatewayPr
 		return InsertScore(conn, reqBody.ScoreBody)
 	case `getScore`:
 		return GetScoreByDocument(conn, reqBody.GetByDocumentBody)
-		// case `getNameByDocument`:
-		// 	return GetNameByDocument(conn, reqBody.GetByDocumentBody)
-		//case `getDocumentByPhone`:
-		//	return GetDocumentByPhone(conn, reqBody.GetByPhoneBody)
+
 	}
 
 	response := SetResponseHeaders()

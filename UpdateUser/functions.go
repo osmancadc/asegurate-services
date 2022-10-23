@@ -125,8 +125,8 @@ func UploadToS3(file io.Reader, fileName string) (location string, err error) {
 	return
 }
 
-func UpdateDatabase(route, document string, client lambdaiface.LambdaAPI) (err error) {
-	payload := UpdateSavedReputationInvokePayload(document, route)
+func UpdateDatabase(route, document, email, phone string, client lambdaiface.LambdaAPI) (err error) {
+	payload := UpdateSavedReputationInvokePayload(document, route, email, phone)
 	response := InvokeResponse{}
 	responseMessage := ResponseMessage{}
 

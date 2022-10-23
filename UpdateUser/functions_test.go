@@ -228,48 +228,6 @@ func TestUploadToS3(t *testing.T) {
 	}
 }
 
-func TestUpdateDatabase(t *testing.T) {
-	type args struct {
-		route    string
-		document string
-		client   lambdaiface.LambdaAPI
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: `Success Test`,
-			args: args{
-				client: &MockUpdateDatabase{},
-			},
-			wantErr: false,
-		},
-		{
-			name: `Error Test - Invocation Error`,
-			args: args{
-				client: &MockUpdateDatabase{},
-			},
-			wantErr: true,
-		},
-		{
-			name: `Error Test - Status 500`,
-			args: args{
-				client: &MockUpdateDatabase{},
-			},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UpdateDatabase(tt.args.route, tt.args.document, tt.args.client); (err != nil) != tt.wantErr {
-				t.Errorf("UpdateDatabase() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestUploadImage(t *testing.T) {
 	type args struct {
 		data     []byte
@@ -302,6 +260,50 @@ func TestUploadImage(t *testing.T) {
 			}
 			if gotLocation != tt.wantLocation {
 				t.Errorf("UploadImage() = %v, want %v", gotLocation, tt.wantLocation)
+			}
+		})
+	}
+}
+
+func TestUpdateDatabase(t *testing.T) {
+	type args struct {
+		route    string
+		document string
+		email    string
+		phone    string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				client: &MockUpdateDatabase{},
+			},
+			wantErr: false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockUpdateDatabase{},
+			},
+			wantErr: true,
+		},
+		{
+			name: `Error Test - Status 500`,
+			args: args{
+				client: &MockUpdateDatabase{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := UpdateDatabase(tt.args.route, tt.args.document, tt.args.email, tt.args.phone, tt.args.client); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateDatabase() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

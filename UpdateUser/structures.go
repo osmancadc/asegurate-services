@@ -4,6 +4,8 @@ type RequestBody struct {
 	Image    string `json:"image"`
 	Name     string `json:"name"`
 	Document string `json:"document"`
+	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
 }
 
 type InvokePayload struct {
@@ -27,4 +29,6 @@ type ResponseMessage struct {
 type Person struct {
 	Document string `json:"document,omitempty"`
 	Photo    string `json:"photo,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
 }

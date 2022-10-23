@@ -14,5 +14,5 @@ InternalData:
   - 'InternalData/**'
 ExternalData:
   - 'ExternalData/**'
-UploadImage:
-  - 'UploadImage/**'
+UpdateUser:
+  - 'UpdateUser/**'

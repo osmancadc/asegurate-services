@@ -19,19 +19,21 @@ func HandlerUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayPro
 		return ErrorMessage(err)
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(reqBody.Image)
-	if err != nil {
-		fmt.Println("Errror 1", err.Error())
-	}
+	if reqBody.Image != `` {
+		decoded, err := base64.StdEncoding.DecodeString(reqBody.Image)
+		if err != nil {
+			fmt.Println("Errror 1", err.Error())
+		}
 
-	route, err := UploadImage(decoded, reqBody.Name, reqBody.Document)
-	if err != nil {
-		return ErrorMessage(err)
-	}
+		route, err := UploadImage(decoded, reqBody.Name, reqBody.Document)
+		if err != nil {
+			return ErrorMessage(err)
+		}
 
-	err = UpdatePhotoDatabase(route, reqBody.Document, client)
-	if err != nil {
-		return ErrorMessage(err)
+		err = UpdatePhotoDatabase(route, reqBody.Document, client)
+		if err != nil {
+			return ErrorMessage(err)
+		}
 	}
 
 	err = UpdateUserDatabase(reqBody.Document, reqBody.Email, reqBody.Phone, client)

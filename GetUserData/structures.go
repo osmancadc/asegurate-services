@@ -7,6 +7,7 @@ type User struct {
 	Phone    string `json:"phone"`
 	Photo    string `json:"photo"`
 	Gender   string `json:"gender"`
+	Role     string `json:"role"`
 }
 type InvokePayload struct {
 	Body string `json:"body"`

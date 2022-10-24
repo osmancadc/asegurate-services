@@ -77,7 +77,7 @@ func GetStoredReputationInvokePayload(document string) (payload []byte) {
 }
 
 func GetPredictScoreInvokePayload(internalScore InternalScore, externalProccedings ExternalProccedings) (payload []byte) {
-	predictBody, _ := json.Marshal(PredictScoreBody{
+	payload, _ = json.Marshal(PredictScoreBody{
 		InternalScore:          internalScore.Score,
 		InternalPositiveScores: internalScore.PositiveScores,
 		InternalNegativeScores: internalScore.NegativeScores,
@@ -86,12 +86,6 @@ func GetPredictScoreInvokePayload(internalScore InternalScore, externalProccedin
 		FormalRecentYear:       externalProccedings.FormalRecentYear,
 		Formal5YearsTotal:      externalProccedings.Formal5YearsTotal,
 	})
-
-	body := InvokePayload{
-		Body: string(predictBody),
-	}
-
-	payload, _ = json.Marshal(body)
 
 	return
 }

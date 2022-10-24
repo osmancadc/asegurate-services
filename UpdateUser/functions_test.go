@@ -75,7 +75,7 @@ func TestSuccessMessage(t *testing.T) {
 			name: `Success Test`,
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 200,
-				Body:       `{"message":"image updated successfully"}`,
+				Body:       `{"message":"User data updated successfully"}`,
 			},
 			wantErr: false,
 		},

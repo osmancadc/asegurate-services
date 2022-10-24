@@ -17,15 +17,15 @@ func TestHandlerUploadScore(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: `Error Test - No Environment Variables`,
+			name: `Success Test`,
 			args: args{
 				req: events.APIGatewayProxyRequest{
 					Body: `{"image":"","name":"some_name.txt","document":"123456"}`,
 				},
 			},
 			want: events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"message":"MissingRegion: could not find region configuration"}`,
+				StatusCode: 200,
+				Body:       `{"message":"User data updated successfully"}`,
 			},
 			wantErr: false,
 		},

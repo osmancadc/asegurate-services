@@ -36,10 +36,7 @@ func HandlerUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayPro
 		}
 	}
 
-	err = UpdateUserDatabase(reqBody.Document, reqBody.Email, reqBody.Phone, client)
-	if err != nil {
-		return ErrorMessage(err)
-	}
+	UpdateUserDatabase(reqBody.Document, reqBody.Email, reqBody.Phone, client)
 
 	return SuccessMessage()
 }

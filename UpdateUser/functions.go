@@ -49,7 +49,7 @@ func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse,
 func SuccessMessage() (response events.APIGatewayProxyResponse, err error) {
 	response = SetResponseHeaders()
 	response.StatusCode = http.StatusOK
-	response.Body = `{"message":"image updated successfully"}`
+	response.Body = `{"message":"User data updated successfully"}`
 	return
 }
 

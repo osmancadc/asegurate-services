@@ -162,26 +162,24 @@ func GetNameByDocument(document string, client lambdaiface.LambdaAPI) (name stri
 	return
 }
 
-func GetNameFromDatabase(dataType, dataValue string, client lambdaiface.LambdaAPI) (found bool, name string, err error) {
+func GetNameFromDatabase(dataType, dataValue string, client lambdaiface.LambdaAPI) (bool, string) {
 	if dataType == `CC` {
-		name, err = GetNameByDocument(dataValue, client)
+		name, err := GetNameByDocument(dataValue, client)
 		if err != nil {
 			fmt.Printf(`GetNameFromDatabase(1): %s`, err.Error())
-			return
+			return false, ``
 		}
-		found = true
-		return
+		return true, name
 	} else if dataType == `PHONE` {
-		name, err = GetNameByPhone(dataValue, client)
+		name, err := GetNameByPhone(dataValue, client)
 		if err != nil {
 			fmt.Printf(`GetNameFromDatabase(2): %s`, err.Error())
-			return
+			return false, ``
 		}
-		found = true
-		return
+		return true, name
 	}
 
-	return false, "", nil
+	return false, ""
 }
 
 func GetNameFromProvider(documentType, document string, client lambdaiface.LambdaAPI) (bool, string, error) {

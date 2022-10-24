@@ -285,7 +285,6 @@ func TestGetNameFromDatabase(t *testing.T) {
 		args      args
 		wantFound bool
 		wantName  string
-		wantErr   bool
 	}{
 		{
 			name: `Success Tests - Using CC`,
@@ -296,7 +295,6 @@ func TestGetNameFromDatabase(t *testing.T) {
 			},
 			wantFound: true,
 			wantName:  `some_name some_lastname`,
-			wantErr:   false,
 		},
 		{
 			name: `Success Tests - Using PHONE`,
@@ -307,23 +305,18 @@ func TestGetNameFromDatabase(t *testing.T) {
 			},
 			wantFound: true,
 			wantName:  `some_name some_lastname`,
-			wantErr:   false,
 		},
 		{
 			name:      `Success Tests - No Data`,
 			args:      args{},
 			wantFound: false,
 			wantName:  ``,
-			wantErr:   false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotFound, gotName, err := GetNameFromDatabase(tt.args.dataType, tt.args.dataValue, tt.args.client)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetNameFromDatabase() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			gotFound, gotName := GetNameFromDatabase(tt.args.dataType, tt.args.dataValue, tt.args.client)
+
 			if gotFound != tt.wantFound {
 				t.Errorf("GetNameFromDatabase() gotFound = %v, want %v", gotFound, tt.wantFound)
 			}

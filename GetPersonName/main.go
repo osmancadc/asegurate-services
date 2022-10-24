@@ -14,16 +14,13 @@ func HandlerGetPersonName(req events.APIGatewayProxyRequest) (events.APIGatewayP
 	dataType := req.PathParameters["type"]
 	dataValue := req.PathParameters["value"]
 
-	found, name, err := GetNameFromDatabase(dataType, dataValue, client)
-	if err != nil {
-		return ErrorMessage(err)
-	}
+	found, name := GetNameFromDatabase(dataType, dataValue, client)
 
 	if found {
 		return SuccessMessage(name)
 	}
 
-	found, name, err = GetNameFromProvider(dataType, dataValue, client)
+	found, name, err := GetNameFromProvider(dataType, dataValue, client)
 	if err != nil {
 		return ErrorMessage(err)
 	}

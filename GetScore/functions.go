@@ -77,7 +77,7 @@ func GetAssociatedDocument(phone string, client lambdaiface.LambdaAPI) (document
 }
 
 // It takes a document, sends it to the `InternalData` Lambda function, and returns the result
-func GetInternalScore(document string, client lambdaiface.LambdaAPI) (score InternalScore, isStored bool, err error) {
+func GetInternalScore(document string, client lambdaiface.LambdaAPI) (score InternalScore, err error) {
 	payload := GetInternalScoreInvokePayload(document)
 	response := InvokeResponse{}
 	responseMessage := ResponseMessage{}
@@ -96,7 +96,6 @@ func GetInternalScore(document string, client lambdaiface.LambdaAPI) (score Inte
 	}
 
 	json.Unmarshal([]byte(response.Body), &score)
-	isStored = true
 	return
 }
 
@@ -124,7 +123,7 @@ func GetExternalProccedings(document string, client lambdaiface.LambdaAPI) (proc
 	return
 }
 
-func GetStoredScore(document string, client lambdaiface.LambdaAPI) (storedScore Score, daysSinceLastUpdate int) {
+func GetStoredScore(document string, client lambdaiface.LambdaAPI) (storedScore Score, isStored bool, daysSinceLastUpdate int) {
 	payload := GetStoredReputationInvokePayload(document)
 	response := InvokeResponse{}
 	storedReputation := StoredReputation{}
@@ -150,6 +149,7 @@ func GetStoredScore(document string, client lambdaiface.LambdaAPI) (storedScore 
 		return
 	}
 
+	isStored = true
 	daysSinceLastUpdate = int(time.Since(lastUpdated).Hours() / 24)
 	storedScore = Score{
 		Name:       fmt.Sprintf("%s %s", storedReputation.Name, storedReputation.Lastname),
@@ -186,14 +186,14 @@ func CalculateScore(document string, client lambdaiface.LambdaAPI) (isStored boo
 	internalScore := InternalScore{}
 	externalProccedings := ExternalProccedings{}
 
-	internalScore, isStored, err = GetInternalScore(document, client)
+	internalScore, err = GetInternalScore(document, client)
 	if err != nil {
 		fmt.Printf(`CalculateScore(1): %s`, err.Error())
 		return
 	}
 
-	score, daysSinceLastUpdate := GetStoredScore(document, client)
-	if daysSinceLastUpdate >= 7 || !isStored {
+	score, isStored, daysSinceLastUpdate := GetStoredScore(document, client)
+	if daysSinceLastUpdate >= 7 {
 		externalProccedings, err = GetExternalProccedings(document, client)
 		if err != nil {
 			fmt.Printf(`CalculateScore(2): %s`, err.Error())
@@ -236,6 +236,7 @@ func UpdateSavedReputation(document string, reputation int, client lambdaiface.L
 }
 
 func GetAssociatedName(document string, client lambdaiface.LambdaAPI) (name, lastname string, err error) {
+
 	response := InvokeResponse{}
 	responseMessage := ResponseMessage{}
 	person := Person{}
@@ -244,7 +245,7 @@ func GetAssociatedName(document string, client lambdaiface.LambdaAPI) (name, las
 
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("ExternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf(`GetFromProvider(1): %s`, err.Error())
+		fmt.Printf(`GetAssociatedName(1): %s`, err.Error())
 		return
 	}
 
@@ -252,7 +253,7 @@ func GetAssociatedName(document string, client lambdaiface.LambdaAPI) (name, las
 	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
 
 	if response.StatusCode != 200 {
-		fmt.Printf(`GetFromProvider(2): %s`, response.Body)
+		fmt.Printf(`GetAssociatedName(2): %s`, response.Body)
 		json.Unmarshal([]byte(bodyString), &responseMessage)
 		err = errors.New(responseMessage.Message)
 		return

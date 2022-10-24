@@ -44,7 +44,7 @@ func HandlerGetScore(req events.APIGatewayProxyRequest) (events.APIGatewayProxyR
 	} else {
 		name, lastname, err := SaveNewReputation(document, score.Reputation, client)
 		if err != nil {
-			fmt.Println("ERRORRRRRR")
+			return ErrorMessage(err)
 		}
 		score.Name = fmt.Sprintf(`%s %s`, name, lastname)
 		score.Gender = `male`

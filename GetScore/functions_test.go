@@ -177,8 +177,7 @@ func TestGetInternalScore(t *testing.T) {
 				NegativeScores: 0,
 				Average60Days:  0,
 			},
-			wantIsStored: true,
-			wantErr:      false,
+			wantErr: false,
 		},
 		{
 			name: `Error Test - Invocation Error`,
@@ -186,9 +185,8 @@ func TestGetInternalScore(t *testing.T) {
 				document: ``,
 				client:   &MockGetInternalScore{},
 			},
-			wantScore:    InternalScore{},
-			wantIsStored: false,
-			wantErr:      true,
+			wantScore: InternalScore{},
+			wantErr:   true,
 		},
 		{
 			name: `Error Test - Status 500`,
@@ -196,14 +194,13 @@ func TestGetInternalScore(t *testing.T) {
 				document: ``,
 				client:   &MockGetInternalScore{},
 			},
-			wantScore:    InternalScore{},
-			wantIsStored: false,
-			wantErr:      false,
+			wantScore: InternalScore{},
+			wantErr:   false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotScore, gotIsStored, err := GetInternalScore(tt.args.document, tt.args.client)
+			gotScore, err := GetInternalScore(tt.args.document, tt.args.client)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetInternalScore() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -211,9 +208,7 @@ func TestGetInternalScore(t *testing.T) {
 			if !reflect.DeepEqual(gotScore, tt.wantScore) {
 				t.Errorf("GetInternalScore() gotScore = %v, want %v", gotScore, tt.wantScore)
 			}
-			if gotIsStored != tt.wantIsStored {
-				t.Errorf("GetInternalScore() gotIsStored = %v, want %v", gotIsStored, tt.wantIsStored)
-			}
+
 		})
 	}
 }
@@ -291,6 +286,7 @@ func TestGetStoredScore(t *testing.T) {
 	tests := []struct {
 		name            string
 		args            args
+		wantIsStored    bool
 		wantStoredScore Score
 	}{
 		{
@@ -299,6 +295,7 @@ func TestGetStoredScore(t *testing.T) {
 				document: `123456`,
 				client:   &MockGetStoredScore{},
 			},
+			wantIsStored: true,
 			wantStoredScore: Score{
 				Name:       `some_name some_lastname`,
 				Reputation: 0,
@@ -310,6 +307,7 @@ func TestGetStoredScore(t *testing.T) {
 				document: ``,
 				client:   &MockGetStoredScore{},
 			},
+			wantIsStored: false,
 			wantStoredScore: Score{
 				Name:       ``,
 				Reputation: 0,
@@ -321,6 +319,7 @@ func TestGetStoredScore(t *testing.T) {
 				document: ``,
 				client:   &MockGetStoredScore{},
 			},
+			wantIsStored: false,
 			wantStoredScore: Score{
 				Name:       ``,
 				Reputation: 0,
@@ -340,11 +339,14 @@ func TestGetStoredScore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotStoredScore, _ := GetStoredScore(tt.args.document, tt.args.client)
+			gotStoredScore, isStored, _ := GetStoredScore(tt.args.document, tt.args.client)
 			if !reflect.DeepEqual(gotStoredScore, tt.wantStoredScore) {
 				t.Errorf("GetStoredScore() gotStoredScore = %v, want %v", gotStoredScore, tt.wantStoredScore)
 			}
+			if isStored != tt.wantIsStored {
+				t.Errorf("GetStoredScore() gotIsStored = %v, want %v", isStored, tt.wantIsStored)
 
+			}
 		})
 	}
 }

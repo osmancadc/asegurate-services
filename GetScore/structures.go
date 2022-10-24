@@ -36,7 +36,7 @@ type InvokePayload struct {
 type InvokeBody struct {
 	Action          string            `json:"action"`
 	GetByDocument   GetByDocumentBody `json:"get_by_document_body,omitempty"`
-	GetExternalBody GetExternalBody   `json:"proccedings_body,omitempty"`
+	GetExternalBody GetExternalBody   `json:"name_body,omitempty"`
 	GetByPhone      GetByPhoneBody    `json:"get_by_phone_body,omitempty"`
 	Person          Person            `json:"person_body,omitempty"`
 }

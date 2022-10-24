@@ -165,6 +165,8 @@ func PredictPersonScore(internalScore InternalScore, externalProccedings Externa
 	payload := GetPredictScoreInvokePayload(internalScore, externalProccedings)
 	response := InvokeResponse{}
 
+	fmt.Println(string(payload))
+
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("PredictScore"), Payload: payload})
 	if err != nil {
 		fmt.Printf(`GetExternalProccedings(1): %s`, err.Error())

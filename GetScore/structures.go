@@ -58,16 +58,16 @@ type GetExternalBody struct {
 
 type PredictScoreBody struct {
 	InternalScore          float32 `json:"internal_score"`
-	InternalPositiveScores int     `json:"positive_score"`
-	InternalNegativeScores int     `json:"negative_score"`
-	InternalAverage60Days  float32 `json:"average_score"`
-	MeliScore              int     `json:"meli_score"`
-	MeliPositiveScores     int     `json:"meli_positive"`
-	MeliNegativeScores     int     `json:"meli_negative"`
-	MeliAmountSales        int     `json:"sales_completed"`
+	InternalPositiveScores int     `json:"internal_positive_score"`
+	InternalNegativeScores int     `json:"internal_negative_score"`
+	InternalAverage60Days  float32 `json:"internal_average_score"`
+	MeliScore              int     `json:"mercadolibre_score"`
+	MeliPositiveScores     int     `json:"mercadolibre_positive"`
+	MeliNegativeScores     int     `json:"mercadolibre_negative"`
+	MeliAmountSales        int     `json:"mercadolibre_sales_completed"`
 	FormalComplaints       int     `json:"formal_complaints"`
-	FormalRecentYear       int     `json:"recent_complain_year"`
-	Formal5YearsTotal      int     `json:"five_years_amount"`
+	FormalRecentYear       int     `json:"recent_year_complaints"`
+	Formal5YearsTotal      int     `json:"five_year_complaints"`
 }
 
 type InvokeResponse struct {

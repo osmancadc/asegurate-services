@@ -318,7 +318,7 @@ func InsertPerson(document, expeditionDate string, client lambdaiface.LambdaAPI)
 }
 
 func CheckExistingUser(document string, client lambdaiface.LambdaAPI) (exists bool, err error) {
-	payload := GetInvokePayload(document, `getPersonByDocument`)
+	payload := GetInvokePayload(document, `checkUserByDocument`)
 	response := InvokeResponse{}
 	responseMesssage := ResponseMesssage{}
 

@@ -974,11 +974,11 @@ func TestGetAccountData(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
-	columns := []string{`name`, `email`, `phone`, `photo`, `gender`}
+	columns := []string{`name`, `email`, `phone`, `photo`, `gender`, `role`}
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_email`, `some_phone`, `some_photo`, `some_gender`))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(`some_name`, `some_email`, `some_phone`, `some_photo`, `some_gender`, `some_role`))
 
 	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
 		WithArgs(`123456`).
@@ -1004,7 +1004,7 @@ func TestGetAccountData(t *testing.T) {
 			},
 			wantResponse: events.APIGatewayProxyResponse{
 				StatusCode: 200,
-				Body:       `{"name":"some_name","email":"some_email","phone":"some_phone","photo":"some_photo","gender":"some_gender"}`,
+				Body:       `{"name":"some_name","email":"some_email","phone":"some_phone","photo":"some_photo","gender":"some_gender","role":"some_role"}`,
 			},
 			wantErr: false,
 		},

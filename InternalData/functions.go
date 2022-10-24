@@ -184,6 +184,7 @@ func GetAccountData(conn *gorm.DB, body GetByDocumentBody) (response events.APIG
 		`phone`,
 		`photo`,
 		`gender`,
+		`role`,
 	).Joins(`INNER JOIN person ON person.document = user.document`).
 		Where(&User{Document: body.Document}).
 		Scan(&account)
@@ -194,8 +195,8 @@ func GetAccountData(conn *gorm.DB, body GetByDocumentBody) (response events.APIG
 
 	response = SetResponseHeaders()
 	response.StatusCode = http.StatusOK
-	response.Body = fmt.Sprintf(`{"name":"%s","email":"%s","phone":"%s","photo":"%s","gender":"%s"}`,
-		account.Name, account.Email, account.Phone, account.Photo, account.Gender)
+	response.Body = fmt.Sprintf(`{"name":"%s","email":"%s","phone":"%s","photo":"%s","gender":"%s","role":"%s"}`,
+		account.Name, account.Email, account.Phone, account.Photo, account.Gender, account.Role)
 	return response, nil
 }
 

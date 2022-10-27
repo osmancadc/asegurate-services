@@ -186,9 +186,6 @@ func CheckExistingPerson(document string, client lambdaiface.LambdaAPI) (name st
 func GetPersonData(document, expeditionDate string, client lambdaiface.LambdaAPI) (personData PersonData, err error) {
 	payload := ExternalDataInvokePayload(document, expeditionDate)
 
-	some := string(payload)
-	fmt.Println(some)
-
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("ExternalData"), Payload: payload})
 	if err != nil {
 		fmt.Printf(`GetPersonData(1): %s`, err.Error())
@@ -268,13 +265,13 @@ func ValidatePersonData(personData PersonData, auxErr error) (err error) {
 
 	if personData.Name == `` {
 		fmt.Printf(`ValidatePersonData(2): Person not found`)
-		err = errors.New(`no se encontro a la persona, intenta nuevamente`)
+		err = errors.New(`person not found`)
 		return
 	}
 
 	if !personData.IsAlive {
 		fmt.Printf(`ValidatePersonData(3): Person is dead`)
-		err = errors.New(`el documento es de una persona fallecida`)
+		err = errors.New(`person not found`)
 		return
 	}
 

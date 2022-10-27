@@ -16,3 +16,5 @@ ExternalData:
   - 'ExternalData/**'
 UpdateUser:
   - 'UpdateUser/**'
+RecoverPassword:
+  - 'RecoverPassword/**'

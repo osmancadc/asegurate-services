@@ -75,8 +75,6 @@ func GetEmailByDocument(document string, client lambdaiface.LambdaAPI) (email st
 
 	payload := GetByDocumentInvokePayload(document)
 
-	print(string(payload))
-
 	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
 		fmt.Printf(`GetEmailByDocument(1): %s`, err.Error())

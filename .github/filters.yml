@@ -18,3 +18,5 @@ UpdateUser:
   - 'UpdateUser/**'
 RecoverPassword:
   - 'RecoverPassword/**'
+GetComments:
+  - 'GetComments/**'

@@ -283,6 +283,39 @@ func UpdateUser(conn *gorm.DB, user User) (response events.APIGatewayProxyRespon
 
 //Score Services
 
+func GetCommentsByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
+	comments := Comments{}
+
+	rows, err := conn.Raw(`SELECT 
+	CONCAT(p2.name,' ',p2.lastname) name, score, p2.photo, comments  
+	FROM person p 
+	INNER JOIN score s on s.objective  = p.document 
+	INNER JOIN user u on u.user_id = s.author
+	INNER JOIN person p2 on u.document = p2.document 
+	where p.document = ?`, body.Document).Rows()
+	if err != nil {
+		fmt.Printf(`GetInternalScoreSummary(1): %s`, err.Error())
+		return ErrorMessage(errors.New(`internal score not found`))
+	}
+
+	for rows.Next() {
+		auxComment := Comment{}
+		err = rows.Scan(&auxComment.Author, &auxComment.Score, &auxComment.Photo, &auxComment.Comment)
+		comments.Comments = append(comments.Comments, auxComment)
+		if err != nil {
+			fmt.Printf(`GetInternalScoreSummary(2): %s`, err.Error())
+			return ErrorMessage(errors.New(`no comments found`))
+		}
+	}
+
+	commentsJson, _ := json.Marshal(comments)
+
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = string(commentsJson)
+	return response, nil
+}
+
 func GetScoreByDocument(conn *gorm.DB, body GetByDocumentBody) (response events.APIGatewayProxyResponse, err error) {
 	internalScore := InternalScore{}
 

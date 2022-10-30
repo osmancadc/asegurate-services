@@ -44,7 +44,8 @@ func HandlerInternalData(req events.APIGatewayProxyRequest) (events.APIGatewayPr
 		return InsertScore(conn, reqBody.ScoreBody)
 	case `getScore`:
 		return GetScoreByDocument(conn, reqBody.GetByDocumentBody)
-
+	case `getComments`:
+		return GetCommentsByDocument(conn, reqBody.GetByDocumentBody)
 	}
 
 	response := SetResponseHeaders()

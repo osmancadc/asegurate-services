@@ -16,6 +16,17 @@ type InternalScore struct {
 	Average60Days  float32
 }
 
+type Comments struct {
+	Comments []Comment `json:"comments"`
+}
+
+type Comment struct {
+	Author  string `json:"author"`
+	Photo   string `json:"photo"`
+	Comment string `json:"comment"`
+	Score   int    `json:"score"`
+}
+
 type ScoreBody struct {
 	Author    string `json:"author"`
 	Objective string `json:"objective"`

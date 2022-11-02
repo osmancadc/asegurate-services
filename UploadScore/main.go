@@ -14,7 +14,7 @@ func HandlerUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayPro
 
 	err := json.Unmarshal([]byte(req.Body), &reqBody)
 	if err != nil {
-		return ErrorMessage(err)
+		return ErrorMessage(err, 500)
 	}
 
 	client := GetClient()
@@ -22,16 +22,21 @@ func HandlerUploadScore(req events.APIGatewayProxyRequest) (events.APIGatewayPro
 	if reqBody.Type == `PHONE` {
 		reqBody, err = FindUserByPhone(reqBody, client)
 		if err != nil {
-			return ErrorMessage(err)
+			return ErrorMessage(err, 500)
 		}
+
+		if reqBody.Author == reqBody.Objective {
+			return ErrorMessage(errors.New(`can't score yourself`), 405)
+		}
+
 		if reqBody.Objective == `` {
-			return ErrorMessage(errors.New(`user not found`))
+			return ErrorMessage(errors.New(`user not found`), 404)
 		}
 	}
 
 	err = UploadScore(reqBody, client)
 	if err != nil {
-		return ErrorMessage(err)
+		return ErrorMessage(err, 500)
 	}
 
 	response := SetResponseHeaders()

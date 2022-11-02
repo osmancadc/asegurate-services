@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -32,10 +31,10 @@ func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
 	return
 }
 
-func ErrorMessage(functionError error) (response events.APIGatewayProxyResponse, err error) {
+func ErrorMessage(functionError error, statusCode int) (response events.APIGatewayProxyResponse, err error) {
 	response = SetResponseHeaders()
 
-	response.StatusCode = http.StatusInternalServerError
+	response.StatusCode = statusCode
 	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
 
 	return

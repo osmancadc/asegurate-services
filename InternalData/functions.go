@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -29,7 +30,7 @@ var ConnectDatabase = func() (db *gorm.DB, err error) {
 			NamingStrategy: schema.NamingStrategy{
 				SingularTable: true,
 			},
-			// Logger: logger.Discard,
+			Logger: logger.Discard,
 		},
 	)
 	if err != nil {

@@ -34,6 +34,8 @@ func HandlerInternalData(req events.APIGatewayProxyRequest) (events.APIGatewayPr
 		return InsertUser(conn, reqBody.UserBody)
 	case `updateUser`:
 		return UpdateUser(conn, reqBody.UserBody)
+	case `getUserByDocument`:
+		return GetUserByDocument(conn, reqBody.GetByDocumentBody)
 	case `getUserByPhone`:
 		return GetUserByPhone(conn, reqBody.GetByPhoneBody)
 	case `checkUserByDocument`:

@@ -27,7 +27,7 @@ jobs:
       - name: Quality Check
         working-directory: ${{matrix.dir}}
         env:
-            MINIMUM_COVERAGE: 50
+            MINIMUM_COVERAGE: 75
         run: |
             echo "Quality Check: checking test coverage is above minimum ..."
             echo "Threshold             : $MINIMUM_COVERAGE %"

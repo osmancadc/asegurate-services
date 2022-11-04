@@ -1,65 +1,127 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	str "strings"
+	"time"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	invokeLambda "github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	jwt "github.com/golang-jwt/jwt/v4"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var ConnectDatabase = func() (connection *sql.DB, err error) {
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	database := os.Getenv("DB_NAME")
+var GetClient = func() lambdaiface.LambdaAPI {
+	region := os.Getenv(`REGION`)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{SharedConfigState: session.SharedConfigEnable}))
+	return invokeLambda.New(sess, &aws.Config{Region: aws.String(region)})
+}
 
-	connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, host, database))
-	if err != nil {
-		fmt.Printf("Error conectando DB %v", err)
-		return nil, err
+func SetResponseHeaders() (response events.APIGatewayProxyResponse) {
+	response = events.APIGatewayProxyResponse{
+		Headers: map[string]string{
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "POST",
+		},
 	}
+	return
+}
+
+func ErrorMessage(functionError error, statusCode int) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+
+	response.StatusCode = statusCode
+	response.Body = fmt.Sprintf(`{"message":"%s"}`, functionError.Error())
 
 	return
 }
 
-func GetUserData(conn *sql.DB, data RequestBody) (found bool, user User, err error) {
-	found = false
-	results, err := conn.Query(`SELECT u.document id, CONCAT(p.name," ",p.lastname) name, u.role FROM user u
-												INNER JOIN person p on u.document = p.document
-												WHERE u.document = ? and u.password = ?`, data.Document, data.Password)
-	if err != nil {
-		fmt.Printf(`GetUserData(1): %s`, err.Error())
-		return
-	}
-
-	if results.Next() {
-		found = true
-		err = results.Scan(&user.UserId, &user.Name, &user.Role)
-		if err != nil {
-			fmt.Printf(`GetUserData(2): %s`, err.Error())
-			return
-		}
-	}
+func SuccessMessage(token string) (response events.APIGatewayProxyResponse, err error) {
+	response = SetResponseHeaders()
+	response.StatusCode = http.StatusOK
+	response.Body = fmt.Sprintf(`{"message":"User authenticated","token":"%s","expiresIn":3600}`, token)
 
 	return
 }
 
-func GenerateJWT(user User) (token string, err error) {
-	tokenData := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"authorized": true,
-		"name":       user.Name,
-		"id":         user.UserId,
-		"role":       user.Role,
+func GetUserPasswordInvokePayload(document string) (payload []byte) {
+	getNameBody, _ := json.Marshal(InvokeBody{
+		Action: `getUserByDocument`,
+		GetByDocument: GetByDocumentBody{
+			Document: document,
+			Fields:   []string{`password`},
+		},
 	})
 
-	token, err = tokenData.SignedString([]byte("ASEGUR4TE"))
+	body := InvokePayload{
+		Body: string(getNameBody),
+	}
+
+	payload, _ = json.Marshal(body)
+
+	return
+}
+
+func GetUserPassword(document string, client lambdaiface.LambdaAPI) (password string, err error) {
+	response := InvokeResponse{}
+	responseBody := ResponseBody{}
+
+	payload := GetUserPasswordInvokePayload(document)
+
+	result, err := client.Invoke(&invokeLambda.InvokeInput{FunctionName: aws.String("InternalData"), Payload: payload})
 	if err != nil {
-		fmt.Printf("GenerateJWT(1): %s", err.Error())
+		fmt.Printf(`GetUserPassword(1): %s`, err.Error())
 		return
 	}
+
+	json.Unmarshal(result.Payload, &response)
+	bodyString := str.Replace(string(response.Body), `\`, ``, -1)
+
+	json.Unmarshal([]byte(bodyString), &responseBody)
+
+	password = responseBody.Password
+
+	return
+}
+
+func ValidateUser(requestBody RequestBody, client lambdaiface.LambdaAPI) (found, isValid bool, err error) {
+
+	password, err := GetUserPassword(requestBody.Document, client)
+	if err != nil {
+		return
+	}
+
+	if password == `` {
+		return
+	}
+
+	found = true
+	if password != requestBody.Password {
+		return
+	}
+	isValid = true
+
+	return
+}
+
+func GenerateJWT(document string) (token string, err error) {
+	claims := jwt.RegisteredClaims{
+		ExpiresAt: &jwt.NumericDate{
+			Time: time.Now().Add(time.Hour * 24),
+		},
+		ID: document,
+	}
+	tokenData := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	token, _ = tokenData.SignedString([]byte("ASEGUR4TE"))
 
 	return
 }

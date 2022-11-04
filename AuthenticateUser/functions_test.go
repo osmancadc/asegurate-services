@@ -1,113 +1,103 @@
 package main
 
 import (
-	"database/sql"
-	"os"
-	"reflect"
+	"errors"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func TestConnectDatabase(t *testing.T) {
-	os.Setenv(`DB_USER`, `root`)
-	os.Setenv(`DB_PASSWORD`, `1234`)
-	os.Setenv(`DB_HOST`, `dbhost`)
-	os.Setenv(`DB_NAME`, `dbname`)
+func TestGetClient(t *testing.T) {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name string
+		want lambdaiface.LambdaAPI
 	}{
 		{
-			name:    "Error test",
-			wantErr: false,
+			name: `Single test`,
+			want: &lambda.Lambda{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ConnectDatabase()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ConnectDatabase error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
+			GetClient()
 		})
 	}
 }
 
-func TestGetUserData(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	columns := []string{`document`, `name`, `role`}
-	columns_error := []string{`document`, `name`, `role`, `some`}
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`123456`, `some_pass`).
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(`123456`, `some_name`, `role`))
-
-	mock.ExpectQuery(`SELECT (.+) FROM (.+)`).
-		WithArgs(`1234`, `some_pass`).
-		WillReturnRows(sqlmock.NewRows(columns_error).AddRow(`123456`, `some_name`, `role`, `some`))
-
+func TestErrorMessage(t *testing.T) {
 	type args struct {
-		conn *sql.DB
-		data RequestBody
+		functionError error
+		statusCode    int
 	}
 	tests := []struct {
-		name      string
-		args      args
-		wantFound bool
-		wantUser  User
-		wantErr   bool
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
 	}{
 		{
-			name: "Success test - user found",
+			name: "Success Test",
 			args: args{
-				conn: db,
-				data: RequestBody{
-					Document: `123456`,
-					Password: `some_pass`,
-				},
+				functionError: errors.New(`some error`),
+				statusCode:    500,
 			},
-			wantFound: true,
-			wantUser: User{
-				Name:   `some_name`,
-				UserId: `123456`,
-				Role:   `role`,
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 500,
+				Body:       `{"message":"some error"}`,
 			},
 			wantErr: false,
-		},
-		{
-			name: "Success test - Error from database",
-			args: args{
-				conn: db,
-				data: RequestBody{
-					Document: `654321`,
-					Password: `some_pass`,
-				},
-			},
-			wantFound: false,
-			wantUser:  User{},
-			wantErr:   true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotFound, gotUser, err := GetUserData(tt.args.conn, tt.args.data)
+			gotResponse, err := ErrorMessage(tt.args.functionError, tt.args.statusCode)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetUserData() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ErrorMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if gotFound != tt.wantFound {
-				t.Errorf("GetUserData() gotFound = %v, want %v", gotFound, tt.wantFound)
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("ErrorMessage() = %v, want %v", gotResponse, tt.wantResponse)
 			}
-			if !reflect.DeepEqual(gotUser, tt.wantUser) {
-				t.Errorf("GetUserData() gotUser = %v, want %v", gotUser, tt.wantUser)
+		})
+	}
+}
+
+func TestSuccessMessage(t *testing.T) {
+	type args struct {
+		token string
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResponse events.APIGatewayProxyResponse
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				token: `some_token`,
+			},
+			wantResponse: events.APIGatewayProxyResponse{
+				StatusCode: 200,
+				Body:       `{"message":"User authenticated","token":"some_token","expiresIn":3600}`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResponse, err := SuccessMessage(tt.args.token)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SuccessMessage() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResponse.StatusCode != tt.wantResponse.StatusCode ||
+				gotResponse.Body != tt.wantResponse.Body {
+				t.Errorf("SuccessMessage() = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}
@@ -115,36 +105,144 @@ func TestGetUserData(t *testing.T) {
 
 func TestGenerateJWT(t *testing.T) {
 	type args struct {
-		user User
+		document string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    string
 		wantErr bool
 	}{
 		{
-			name: "Success test",
+			name: `Success Test`,
 			args: args{
-				user: User{
-					UserId: `123456`,
-					Name:   `some_full_name`,
-					Role:   `role`,
-				},
+				document: `123456`,
 			},
-			want:    `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJpZCI6IjEyMzQ1NiIsIm5hbWUiOiJzb21lX2Z1bGxfbmFtZSIsInJvbGUiOiJyb2xlIn0.KWKl6ZT7HXpJpHmjISZ8yu0Yy-RxMeQkatCBXR35O30`,
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateJWT(tt.args.user)
+			_, err := GenerateJWT(tt.args.document)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateJWT() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GenerateJWT() = %v, want %v", got, tt.want)
+
+		})
+	}
+}
+
+func TestGetUserPassword(t *testing.T) {
+	type args struct {
+		document string
+		client   lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantPassword string
+		wantErr      bool
+	}{
+		{
+			name: `Success Test`,
+			args: args{
+				client: &MockGetUserPassword{},
+			},
+			wantPassword: `some_password`,
+			wantErr:      false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				client: &MockGetUserPassword{},
+			},
+			wantPassword: ``,
+			wantErr:      true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPassword, err := GetUserPassword(tt.args.document, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetUserPassword() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotPassword != tt.wantPassword {
+				t.Errorf("GetUserPassword() = %v, want %v", gotPassword, tt.wantPassword)
+			}
+		})
+	}
+}
+
+func TestValidateUser(t *testing.T) {
+	type args struct {
+		requestBody RequestBody
+		client      lambdaiface.LambdaAPI
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantFound   bool
+		wantIsValid bool
+		wantErr     bool
+	}{
+		{
+			name: `Success Test - User Authenticated`,
+			args: args{
+				requestBody: RequestBody{
+					Password: `some_password`,
+				},
+				client: &MockValidateUser{},
+			},
+			wantFound:   true,
+			wantIsValid: true,
+			wantErr:     false,
+		},
+		{
+			name: `Success Test - No User Found`,
+			args: args{
+				requestBody: RequestBody{},
+				client:      &MockValidateUser{},
+			},
+			wantFound:   false,
+			wantIsValid: false,
+			wantErr:     false,
+		},
+		{
+			name: `Success Test - User Unauthorized`,
+			args: args{
+				requestBody: RequestBody{
+					Password: `some_wrong_password`,
+				},
+				client: &MockValidateUser{},
+			},
+			wantFound:   true,
+			wantIsValid: false,
+			wantErr:     false,
+		},
+		{
+			name: `Error Test - Invocation Error`,
+			args: args{
+				requestBody: RequestBody{},
+				client:      &MockValidateUser{},
+			},
+			wantFound:   false,
+			wantIsValid: false,
+			wantErr:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFound, gotIsValid, err := ValidateUser(tt.args.requestBody, tt.args.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateUser() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotFound != tt.wantFound {
+				t.Errorf("ValidateUser() gotFound = %v, want %v", gotFound, tt.wantFound)
+			}
+			if gotIsValid != tt.wantIsValid {
+				t.Errorf("ValidateUser() gotIsValid = %v, want %v", gotIsValid, tt.wantIsValid)
 			}
 		})
 	}

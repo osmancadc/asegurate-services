@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -10,53 +10,34 @@ import (
 )
 
 func HandlerAuthenticateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var data RequestBody
+	var reqBody RequestBody
 
-	response := events.APIGatewayProxyResponse{
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "POST",
-		},
+	err := json.Unmarshal([]byte(req.Body), &reqBody)
+	if err != nil {
+		return ErrorMessage(err, http.StatusInternalServerError)
 	}
 
-	err := json.Unmarshal([]byte(req.Body), &data)
-	if err != nil {
-		response.StatusCode = http.StatusBadRequest
-		return response, nil
-	}
+	client := GetClient()
 
-	conn, err := ConnectDatabase()
+	found, valid, err := ValidateUser(reqBody, client)
 	if err != nil {
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
-	}
-	defer conn.Close()
-
-	found, user, err := GetUserData(conn, data)
-	if err != nil {
-		response.Body = fmt.Sprintf(`{"message":"%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err, http.StatusInternalServerError)
 	}
 
 	if !found {
-		response.Body = `{"message":"No user found","token":""}`
-		response.StatusCode = http.StatusUnauthorized
-		return response, nil
+		return ErrorMessage(errors.New(`not user found`), http.StatusNotFound)
 	}
 
-	token, err := GenerateJWT(user)
+	if !valid {
+		return ErrorMessage(errors.New(`incorrect password`), http.StatusUnauthorized)
+	}
+
+	token, err := GenerateJWT(reqBody.Document)
 	if err != nil {
-		response.Body = fmt.Sprintf(`{"message":"%s"}`, err.Error())
-		response.StatusCode = http.StatusInternalServerError
-		return response, nil
+		return ErrorMessage(err, http.StatusInternalServerError)
 	}
 
-	response.Body = fmt.Sprintf(`{"message":"User authenticated","token":"%s","expiresIn":3600}`, token)
-	response.StatusCode = http.StatusOK
-	return response, nil
-
+	return SuccessMessage(token)
 }
 
 func main() {
